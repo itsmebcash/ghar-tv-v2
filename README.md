@@ -110,6 +110,22 @@ internet; you can start watching as soon as the first channels appear.
 Download the same `app-debug.apk` on the phone (e.g. from the GitHub Actions page, or
 send it to yourself), open it, and allow "Install unknown apps" when Android asks.
 
+## Ghar Launcher integration
+
+Ghar Launcher shows your **Favourite Channels** and **Continue Watching** on the TV home screen.
+
+- Ghar TV shares a **read-only** list (`content://com.ghar.tv.channels/favourites` and `/last`)
+  with id, name, logo, category, availability, last successful check/playback time and
+  average startup time. **Stream addresses are never shared.** Channels are identified by
+  stable ids (the iptv-org channel id, or a short fingerprint).
+- Access is limited to apps signed with the **same key** (signature permission
+  `com.ghar.tv.permission.CHANNELS`); both repos sign with one key stored as GitHub secrets
+  `GHAR_KEYSTORE_B64` and `GHAR_KEY_PASSWORD`. Without the secrets, builds still work but the
+  two apps can't see each other.
+- The launcher opens a channel with `com.ghar.tv.action.PLAY_CHANNEL` + `channel_id`, or
+  continues with `com.ghar.tv.action.RESUME` (live streams resume live, not at a timestamp).
+- Ghar TV does all channel checking; the launcher only reads the results.
+
 ## Notes
 
 - Streams come from iptv-org, a public directory of free-to-air channels; availability

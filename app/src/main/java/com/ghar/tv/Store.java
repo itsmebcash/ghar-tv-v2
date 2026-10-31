@@ -32,6 +32,7 @@ final class Store {
         long time;
         boolean complete;
         final Map<String, Boolean> working = new HashMap<>(); // url -> isHls
+        final Map<String, Long> okTime = new HashMap<>();     // url -> when it last passed the check
         final Set<String> checked = new HashSet<>();
 
         /** Saved results are kept until you press Rescan; they never expire on their own. */
@@ -57,6 +58,8 @@ final class Store {
             for (int i = 0; i < w.length(); i++) {
                 JSONObject e = w.getJSONObject(i);
                 sc.working.put(e.getString("u"), e.getBoolean("h"));
+                long t = e.optLong("t", 0);
+                if (t > 0) sc.okTime.put(e.getString("u"), t);
             }
             JSONArray ch = o.getJSONArray("checked");
             for (int i = 0; i < ch.length(); i++) sc.checked.add(ch.getString(i));
@@ -71,7 +74,8 @@ final class Store {
         try {
             JSONArray w = new JSONArray();
             for (Map.Entry<String, Boolean> e : sc.working.entrySet()) {
-                w.put(new JSONObject().put("u", e.getKey()).put("h", e.getValue()));
+                Long t = sc.okTime.get(e.getKey());
+                w.put(new JSONObject().put("u", e.getKey()).put("h", e.getValue()).put("t", t == null ? 0 : t));
             }
             JSONArray ch = new JSONArray();
             for (String u : sc.checked) ch.put(u);
@@ -236,6 +240,7 @@ final class Store {
             added = true;
         }
         prefs(c).edit().putStringSet(KEY_FAVS, favs).apply();
+        Snapshot.refreshAsync(c); // keep Ghar Launcher's view of favourites up to date
         return added;
     }
 }

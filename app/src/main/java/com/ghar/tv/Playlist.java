@@ -86,6 +86,7 @@ final class Playlist {
                     if ("tvg-logo".equals(key)) pending.logo = value;
                     else if ("group-title".equals(key)) addCategories(pending, value);
                     else if ("tvg-id".equals(key)) {
+                        pending.tvgId = value.trim();
                         Matcher cm = COUNTRY.matcher(value.toLowerCase(Locale.US));
                         if (cm.find()) pending.country = cm.group(1);
                     } else if ("http-user-agent".equals(key)) pending.userAgent = value;

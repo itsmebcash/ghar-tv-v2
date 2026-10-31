@@ -15,8 +15,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # One permanent key for Ghar TV and Ghar Launcher (GitHub secret), so updates install
+      # over the top and the two apps can trust each other.
+      - name: Prepare signing key
+        env:
+          GHAR_KEYSTORE_B64: ${{ secrets.GHAR_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$GHAR_KEYSTORE_B64" ]; then
+            echo "$GHAR_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ghar.keystore"
+            echo "GHAR_KEYSTORE_FILE=$RUNNER_TEMP/ghar.keystore" >> "$GITHUB_ENV"
+            echo "Signing with the shared Ghar key"
+          else
+            echo "::warning::GHAR_KEYSTORE_B64 secret is not set - this APK uses a temporary key and cannot talk to Ghar Launcher"
+          fi
+
       # The Android SDK is preinstalled on GitHub's ubuntu runners (ANDROID_HOME)
       - name: Build debug APK
+        env:
+          GHAR_KEY_PASSWORD: ${{ secrets.GHAR_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon

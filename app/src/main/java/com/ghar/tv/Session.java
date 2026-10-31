@@ -21,6 +21,7 @@ final class Session {
     private static final String KEY_LAST = "last_channel";
     private static final String KEY_CATEGORY = "category";
     private static final String KEY_RECENT = "recent";
+    private static final String KEY_LAST_TIME = "last_time";
     static final int MAX_RECENT = 20;
 
     private Session() {
@@ -44,6 +45,7 @@ final class Session {
 
             SharedPreferences.Editor e = prefs(c).edit()
                     .putString(KEY_LAST, ch.toJson().toString())
+                    .putLong(KEY_LAST_TIME, System.currentTimeMillis())
                     .putString(KEY_RECENT, arr.toString());
             if (category != null) e.putString(KEY_CATEGORY, category);
             e.apply();
@@ -60,6 +62,11 @@ final class Session {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** When the last channel was started (0 if unknown). */
+    static long lastWatchedTime(Context c) {
+        return prefs(c).getLong(KEY_LAST_TIME, 0);
     }
 
     static String category(Context c) {

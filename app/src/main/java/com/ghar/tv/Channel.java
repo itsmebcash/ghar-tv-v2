@@ -12,6 +12,7 @@ final class Channel {
     String country = "";      // two-letter code from tvg-id, e.g. "np"
     String userAgent;
     String referrer;
+    String tvgId = "";        // iptv-org channel id, e.g. "Kantipur.np@SD" (may be empty)
     final List<String> categories = new ArrayList<>();
     boolean hls;              // set by the health check: stream is an HLS (.m3u8) playlist
 
@@ -26,7 +27,25 @@ final class Channel {
                 .put("quality", quality == null ? "" : quality)
                 .put("ua", userAgent == null ? "" : userAgent)
                 .put("ref", referrer == null ? "" : referrer)
-                .put("cats", cats);
+                .put("cats", cats)
+                .put("tid", tvgId == null ? "" : tvgId);
+    }
+
+    /**
+     * Stable identifier shared with Ghar Launcher instead of the stream address:
+     * the iptv-org channel id when the playlist has one, otherwise a short fingerprint.
+     */
+    String id() {
+        if (tvgId != null && !tvgId.isEmpty()) return tvgId;
+        try {
+            byte[] h = java.security.MessageDigest.getInstance("SHA-1")
+                    .digest(url.getBytes(java.nio.charset.Charset.forName("UTF-8")));
+            StringBuilder sb = new StringBuilder("u-");
+            for (int i = 0; i < 8; i++) sb.append(String.format(java.util.Locale.US, "%02x", h[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            return "u-" + Integer.toHexString(url.hashCode());
+        }
     }
 
     static Channel fromJson(org.json.JSONObject o) throws org.json.JSONException {
@@ -41,6 +60,7 @@ final class Channel {
         c.referrer = emptyToNull(o.optString("ref", ""));
         org.json.JSONArray cats = o.optJSONArray("cats");
         if (cats != null) for (int i = 0; i < cats.length(); i++) c.categories.add(cats.getString(i));
+        c.tvgId = o.optString("tid", "");
         return c;
     }
 

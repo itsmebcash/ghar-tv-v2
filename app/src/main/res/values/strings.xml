@@ -51,6 +51,9 @@
     <string name="option_subtitles">Subtitles…</string>
     <string name="option_screen">Screen mode: %1$s</string>
     <string name="joke_title">While it connects…</string>
+    <string name="channel_not_found">That channel isn\'t in Ghar TV any more. Opening the channel list.</string>
+    <string name="permission_label">Ghar TV channels</string>
+    <string name="permission_description">Read your Ghar TV favourite channels and open them</string>
     <string name="empty_recent">Nothing watched yet. Channels you watch appear here.</string>
     <string name="rescan_title">Check all channels again?</string>
     <string name="rescan_message">Ghar TV will test all %1$s channels again to find which work today. This takes about 10–20 minutes; working channels reappear as they pass. Your favourites are kept.</string>

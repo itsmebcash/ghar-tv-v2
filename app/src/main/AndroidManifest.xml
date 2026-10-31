@@ -5,6 +5,17 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!--
+      Shared with Ghar Launcher. "signature" = only apps signed with the same key get it.
+      Both apps declare it, so they can be installed in any order.
+    -->
+    <permission
+        android:name="com.ghar.tv.permission.CHANNELS"
+        android:description="@string/permission_description"
+        android:label="@string/permission_label"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.ghar.tv.permission.CHANNELS" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- To tell "offline" from "channel broken", so channels aren't skipped while offline -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -36,5 +47,28 @@
             android:launchMode="singleTop"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
             android:exported="false" />
+
+        <!-- Read-only favourites / last-watched for Ghar Launcher (no stream addresses) -->
+        <provider
+            android:name=".ChannelsProvider"
+            android:authorities="com.ghar.tv.channels"
+            android:exported="true"
+            android:readPermission="com.ghar.tv.permission.CHANNELS"
+            android:writePermission="com.ghar.tv.permission.NO_WRITES" />
+
+        <!-- "Play this channel" / "Resume" from Ghar Launcher -->
+        <activity
+            android:name=".OpenChannelActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:permission="com.ghar.tv.permission.CHANNELS"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="com.ghar.tv.action.PLAY_CHANNEL" />
+                <action android:name="com.ghar.tv.action.RESUME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

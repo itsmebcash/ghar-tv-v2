@@ -84,6 +84,10 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private static List<Channel> pendingQueue;
     private static int pendingIndex;
     private static String pendingCategory;
+    /** Opened with one channel (e.g. from Ghar Launcher): fill in its category once loaded. */
+    private static boolean pendingExpand;
+    private long playStartedAt;
+    private boolean startRecorded;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Repo repo;
@@ -187,6 +191,17 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         from.startActivity(new Intent(from, PlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP));
     }
 
+    /** Play one channel now; channel up/down follows {@code category} once the list has loaded. */
+    static void startExpanding(Activity from, Channel channel, String category) {
+        List<Channel> one = new ArrayList<>();
+        one.add(channel);
+        pendingQueue = one;
+        pendingIndex = 0;
+        pendingCategory = category;
+        pendingExpand = true;
+        from.startActivity(new Intent(from, PlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP));
+    }
+
     /** Re-open the last-watched channel (app launch, or Back from the browser). */
     static void resume(Activity from) {
         pendingQueue = null;
@@ -204,6 +219,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             queue = new ArrayList<>(pendingQueue);
             index = pendingIndex;
             category = pendingCategory != null ? pendingCategory : Session.category(this);
+            restoring = pendingExpand;
         } else {
             // Restore the session, also after Android has killed the app.
             Channel last = Session.lastChannel(this);
@@ -223,6 +239,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         taps = new Taps(isTv);
         pendingQueue = null;
         pendingCategory = null;
+        pendingExpand = false;
 
         setContentView(R.layout.activity_player);
         findViews();
@@ -418,6 +435,12 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 ready = true;
                 reconnects = 0;
                 handler.removeCallbacks(startTimeout);
+                Channel now = current();
+                if (!startRecorded && now != null) {
+                    startRecorded = true; // remember how fast this channel starts
+                    Stats.playbackStarted(PlayerActivity.this, now.url,
+                            System.currentTimeMillis() - playStartedAt);
+                }
                 spinner.setVisibility(View.GONE);
                 statusText.setVisibility(View.GONE);
                 hideJoke();
@@ -463,10 +486,12 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             queue = new ArrayList<>(pendingQueue);
             index = pendingIndex;
             if (pendingCategory != null) category = pendingCategory;
-            restoring = false;
+            restoring = pendingExpand;
             pendingQueue = null;
             pendingCategory = null;
+            pendingExpand = false;
             play(index);
+            onRepoChanged();
         }
     }
 
@@ -807,6 +832,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         ready = false;
         reconnects = 0;
         programme = null;
+        playStartedAt = System.currentTimeMillis();
+        startRecorded = false;
         handler.removeCallbacks(retry);
         handler.removeCallbacks(networkWatch);
         Session.channelStarted(this, c, category);

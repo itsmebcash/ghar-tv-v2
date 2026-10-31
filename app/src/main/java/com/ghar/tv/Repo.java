@@ -162,6 +162,7 @@ final class Repo {
                         }
                     }
                     notifyChanged();
+                    Snapshot.refreshAsync(app);
                     if (visibleScreens > 0) resumeScanIfNeeded();
                 } else {
                     fullRescan();
@@ -213,7 +214,10 @@ final class Repo {
             public void onChecked(Channel c, boolean ok) {
                 synchronized (target) {
                     target.checked.add(c.url);
-                    if (ok) target.working.put(c.url, c.hls);
+                    if (ok) {
+                        target.working.put(c.url, c.hls);
+                        target.okTime.put(c.url, System.currentTimeMillis());
+                    }
                 }
                 checked.incrementAndGet();
                 if (ok) passed.add(c);
@@ -225,6 +229,7 @@ final class Repo {
                     target.complete = true;
                     Store.saveScan(app, target);
                 }
+                Snapshot.refreshAsync(app);
                 main.post(() -> {
                     if (target != cache) return;
                     scanning = false;
@@ -303,6 +308,13 @@ final class Repo {
         }
         saveAsync();
         notifyChanged();
+        Snapshot.refreshAsync(app);
+    }
+
+    /** The live entry for a stream address, or null. */
+    Channel find(String url) {
+        int i = indexOf(working, url);
+        return i >= 0 ? working.get(i) : null;
     }
 
     // -------------------------------------------------------------- queries

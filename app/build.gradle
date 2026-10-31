@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+// Shared signing key (same as Ghar Launcher), provided by the GitHub secret GHAR_KEYSTORE_B64.
+// Without it the build still works, signed with a temporary debug key.
+def gharKeystore = System.getenv('GHAR_KEYSTORE_FILE')
+def useGharKey = gharKeystore != null && new File(gharKeystore).exists()
+
 android {
     namespace 'com.ghar.tv'
     compileSdk 34
@@ -10,13 +15,28 @@ android {
         applicationId 'com.ghar.tv'
         minSdk 21
         targetSdk 34
-        versionCode 7
-        versionName '2.0'
+        versionCode 8
+        versionName '2.1'
+    }
+
+    signingConfigs {
+        ghar {
+            if (useGharKey) {
+                storeFile file(gharKeystore)
+                storePassword System.getenv('GHAR_KEY_PASSWORD')
+                keyAlias 'ghar'
+                keyPassword System.getenv('GHAR_KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            if (useGharKey) signingConfig signingConfigs.ghar
+        }
         release {
             minifyEnabled false
+            if (useGharKey) signingConfig signingConfigs.ghar
         }
     }
 
