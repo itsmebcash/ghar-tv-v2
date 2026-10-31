@@ -6,6 +6,8 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To tell "offline" from "channel broken", so channels aren't skipped while offline -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Many free IPTV streams are plain http://, so cleartext must be allowed -->
     <application
@@ -31,6 +33,7 @@
 
         <activity
             android:name=".PlayerActivity"
+            android:launchMode="singleTop"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
             android:exported="false" />
     </application>

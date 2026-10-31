@@ -17,6 +17,19 @@
         android:layout_gravity="center"
         android:indeterminateTint="#FFFFFF" />
 
+    <!-- Connecting / Buffering / Reconnecting / No internet -->
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="64dp"
+        android:shadowColor="#CC000000"
+        android:shadowRadius="6"
+        android:textColor="#E6FFFFFF"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
     <!-- Short notices: skipped channel, screen mode -->
     <TextView
         android:id="@+id/message"
@@ -157,14 +170,38 @@
             android:paddingTop="24dp"
             android:paddingEnd="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:fontFamily="sans-serif-light"
-                android:text="@string/channels"
-                android:textColor="#FFFFFF"
-                android:textSize="26sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-light"
+                    android:text="@string/channels"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp" />
+
+                <!-- Full-screen grid of every channel and category -->
+                <TextView
+                    android:id="@+id/browse_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/pill_button"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="14dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="6dp"
+                    android:text="@string/browse_all"
+                    android:textColor="@color/category_text"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"

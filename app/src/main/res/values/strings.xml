@@ -10,6 +10,12 @@
     <string name="just_now">just now</string>
     <string name="hours_ago">%1$dh ago</string>
     <string name="days_ago">%1$d days ago</string>
+    <string name="scan_paused">  ·  checking continues when the app is open</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_buffering">Buffering…</string>
+    <string name="status_reconnecting">Reconnecting… (%1$d of %2$d)</string>
+    <string name="status_offline">No internet connection. Waiting to reconnect…</string>
+    <string name="browse_all">All channels ›</string>
     <string name="rescan_title">Check all channels again?</string>
     <string name="rescan_message">Ghar TV will test all %1$s channels again to find which work today. This takes about 10–20 minutes; working channels reappear as they pass. Your favourites are kept.</string>
     <string name="empty_scanning">Finding working channels… they will appear here as they pass.</string>

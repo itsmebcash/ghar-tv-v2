@@ -23,19 +23,20 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Full-screen live TV, for both TV remotes and phones.
@@ -48,11 +49,10 @@ import java.util.Set;
  *
  * A channel that doesn't start within START_TIMEOUT_MS, or errors, is skipped automatically.
  */
-public class PlayerActivity extends Activity {
+public class PlayerActivity extends Activity implements Repo.Listener {
 
     private static final long START_TIMEOUT_MS = 12_000;
     private static final long INFO_VISIBLE_MS = 4_000;
-    private static final int REQUEST = 1;
 
     private static final int[] RESIZE_MODES = {
             AspectRatioFrameLayout.RESIZE_MODE_FIT,
@@ -70,19 +70,24 @@ public class PlayerActivity extends Activity {
     private static final int[] ORIENTATION_LABELS = {R.string.rotate_auto, R.string.rotate_portrait, R.string.rotate_landscape};
     private int orientation;
 
-    /** Channels that failed while watching; MainActivity removes them from the list. */
-    static final Set<String> DEAD = Collections.synchronizedSet(new HashSet<String>());
-    static String lastUrl;
+    private static final int MAX_RECONNECTS = 3;
 
     private static List<Channel> pendingQueue;
     private static int pendingIndex;
+    private static String pendingCategory;
+
+    private Repo repo;
+    /** Opened from a saved session: the full channel list is filled in once it has loaded. */
+    private boolean restoring;
+    private String category;
+    private int reconnects;
+    private TextView statusText;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private List<Channel> queue;
     private int index;
     private int direction = 1;
     private boolean ready;
-    private boolean retried;
     private boolean isTv;
     private int screenMode;
     private boolean touchOnControl;
@@ -104,30 +109,57 @@ public class PlayerActivity extends Activity {
     private PanelAdapter panelAdapter;
     private GestureDetector gestures;
 
-    private final Runnable startTimeout = () -> skip(getString(R.string.skip_slow));
+    /** Didn't start in time: skip it — unless we're simply offline. */
+    private final Runnable startTimeout = () -> {
+        if (!Device.isOnline(this)) waitForNetwork();
+        else skip(getString(R.string.skip_slow));
+    };
     private final Runnable hideInfo = this::hideInfoNow;
     private final Runnable hideMessage = () -> message.setVisibility(View.GONE);
 
-    static void start(Activity from, List<Channel> channels, int index) {
+    /** Watch a channel picked in the browser. */
+    static void start(Activity from, List<Channel> channels, int index, String category) {
         pendingQueue = channels;
         pendingIndex = index;
-        from.startActivityForResult(new Intent(from, PlayerActivity.class), REQUEST);
+        pendingCategory = category;
+        from.startActivity(new Intent(from, PlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP));
+    }
+
+    /** Re-open the last-watched channel (app launch, or Back from the browser). */
+    static void resume(Activity from) {
+        pendingQueue = null;
+        from.startActivity(new Intent(from, PlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP));
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (pendingQueue == null || pendingQueue.isEmpty()) {
-            finish();
-            return;
-        }
-        queue = new ArrayList<>(pendingQueue);
-        index = pendingIndex;
-        pendingQueue = null;
         isTv = Device.isTv(this);
+        repo = Repo.get(this);
+        if (pendingQueue != null && !pendingQueue.isEmpty()) {
+            queue = new ArrayList<>(pendingQueue);
+            index = pendingIndex;
+            category = pendingCategory != null ? pendingCategory : Session.category(this);
+        } else {
+            // Restore the session, also after Android has killed the app.
+            Channel last = Session.lastChannel(this);
+            if (last == null) {
+                startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_BROWSE, true));
+                finish();
+                return;
+            }
+            queue = new ArrayList<>();
+            queue.add(last);
+            index = 0;
+            category = Session.category(this);
+            restoring = true;
+        }
+        pendingQueue = null;
+        pendingCategory = null;
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_player);
+        statusText = findViewById(R.id.status_text);
+        findViewById(R.id.browse_button).setOnClickListener(v -> openBrowser());
         info = findViewById(R.id.info);
         number = findViewById(R.id.number);
         name = findViewById(R.id.channel_name);
@@ -191,35 +223,168 @@ public class PlayerActivity extends Activity {
             }
         });
 
-        player = new ExoPlayer.Builder(this).build();
+        player = buildPlayer();
         playerView.setPlayer(player);
         player.addListener(new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY) {
                     ready = true;
-                    retried = false;
+                    reconnects = 0;
                     handler.removeCallbacks(startTimeout);
                     spinner.setVisibility(View.GONE);
+                    statusText.setVisibility(View.GONE);
+                    repo.setPlaybackActive(true);
                 } else if (state == Player.STATE_BUFFERING) {
                     spinner.setVisibility(View.VISIBLE);
+                    showStatusRes(ready ? R.string.status_buffering : R.string.status_connecting);
                 }
             }
 
             @Override
+            public void onIsPlayingChanged(boolean isPlaying) {
+                // Keep the screen awake only while video is actually playing (saves battery).
+                if (isPlaying) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+
+            @Override
             public void onPlayerError(PlaybackException error) {
-                if (ready && !retried) {
-                    // It was playing fine: probably a network hiccup. Try once more.
-                    retried = true;
-                    ready = false;
-                    play(index);
-                } else {
-                    skip(getString(R.string.skip_error));
-                }
+                handlePlaybackError(error);
             }
         });
 
+        repo.addListener(this);
+        onRepoChanged();
         play(index);
+    }
+
+    /**
+     * One player for the whole screen; channels are swapped inside it, never a second stream.
+     * - Starts as soon as ~2 s of video is buffered, then keeps up to 60 s in reserve.
+     * - Starts at a modest quality and adapts up/down to the connection (HLS adaptive streaming).
+     * - Hardware video decoding, falling back to another decoder if the first one fails.
+     */
+    private ExoPlayer buildPlayer() {
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                        15_000,  // keep at least 15 s buffered once playing
+                        60_000,  // buffer up to 60 s ahead when the connection allows
+                        2_000,   // start after 2 s
+                        4_000)   // after a stall, resume once 4 s are ready
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build();
+        DefaultBandwidthMeter bandwidth = new DefaultBandwidthMeter.Builder(this)
+                .setInitialBitrateEstimate(800_000) // start low = fast first picture on slow links
+                .build();
+        DefaultRenderersFactory renderers = new DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true);
+        return new ExoPlayer.Builder(this, renderers)
+                .setLoadControl(loadControl)
+                .setBandwidthMeter(bandwidth)
+                .build();
+    }
+
+    /** A different channel was picked in the browser while this screen was open. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (pendingQueue != null && !pendingQueue.isEmpty()) {
+            queue = new ArrayList<>(pendingQueue);
+            index = pendingIndex;
+            if (pendingCategory != null) category = pendingCategory;
+            restoring = false;
+            pendingQueue = null;
+            pendingCategory = null;
+            play(index);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (repo != null) repo.screenStarted();
+    }
+
+    /** Once the channel list has loaded, a restored session gets its full category back. */
+    @Override
+    public void onRepoChanged() {
+        if (!restoring || !repo.loaded || queue == null || queue.isEmpty()) return;
+        List<Channel> list = repo.channels(category, Store.favourites(this));
+        Channel current = queue.get(index);
+        int i = Repo.indexOf(list, current.url);
+        if (i < 0) {
+            list.add(0, current); // keep what's playing in the list
+            i = 0;
+        }
+        queue = list;
+        index = i;
+        restoring = false;
+        number.setText(String.valueOf(index + 1));
+        panelAdapter.notifyDataSetChanged();
+    }
+
+    // ---------------------------------------------------------- errors
+
+    private void handlePlaybackError(PlaybackException error) {
+        handler.removeCallbacks(retry);
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+            // Fell behind the live stream (e.g. after a long stall): jump back to live.
+            player.seekToDefaultPosition();
+            player.prepare();
+            return;
+        }
+        if (!Device.isOnline(this)) {
+            waitForNetwork();
+            return;
+        }
+        if (ready && reconnects < MAX_RECONNECTS) {
+            // It was playing: probably a network hiccup. Reconnect with a growing pause.
+            reconnects++;
+            ready = false;
+            showStatus(getString(R.string.status_reconnecting, reconnects, MAX_RECONNECTS));
+            handler.postDelayed(retry, 1500L * reconnects);
+            return;
+        }
+        skip(getString(R.string.skip_error));
+    }
+
+    private final Runnable retry = () -> restartStream();
+
+    /** Offline: never skip channels; wait and continue once the internet is back. */
+    private void waitForNetwork() {
+        handler.removeCallbacks(startTimeout);
+        spinner.setVisibility(View.VISIBLE);
+        showStatusRes(R.string.status_offline);
+        handler.removeCallbacks(networkWatch);
+        handler.postDelayed(networkWatch, 3000);
+    }
+
+    private final Runnable networkWatch = new Runnable() {
+        @Override
+        public void run() {
+            if (Device.isOnline(PlayerActivity.this)) {
+                restartStream();
+            } else {
+                handler.postDelayed(this, 3000);
+            }
+        }
+    };
+
+    private void restartStream() {
+        reconnects = Math.min(reconnects, MAX_RECONNECTS);
+        int keep = reconnects;
+        play(index);
+        reconnects = keep;
+    }
+
+    private void showStatusRes(int resId) {
+        showStatus(getString(resId));
+    }
+
+    private void showStatus(String text) {
+        statusText.setText(text);
+        statusText.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -262,25 +427,53 @@ public class PlayerActivity extends Activity {
 
     @Override
     protected void onStop() {
+        if (repo != null) repo.screenStopped();
         super.onStop();
         // Live TV: when you leave (Home button, another app), stop and release the stream.
-        if (!isFinishing()) finish();
+        // The session is already saved, so the next launch continues this channel.
+        if (!isFinishing()) {
+            releasePlayer();
+            finish();
+        }
     }
 
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        if (player != null) {
-            player.release();
-            player = null;
-        }
+        if (repo != null) repo.removeListener(this);
+        releasePlayer();
         super.onDestroy();
     }
 
+    private void releasePlayer() {
+        if (player != null) {
+            player.stop();
+            player.release();
+            player = null;
+        }
+        if (repo != null) repo.setPlaybackActive(false);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    /** Back: close the channel list if open; otherwise save, stop everything and leave the app. */
     @Override
     public void onBackPressed() {
-        if (isPanelOpen()) closePanel();
-        else super.onBackPressed();
+        if (isPanelOpen()) {
+            closePanel();
+            return;
+        }
+        handler.removeCallbacksAndMessages(null);
+        releasePlayer();
+        repo.exitNow();
+        finish();
+    }
+
+    /** Full-screen browser; Back there returns here. */
+    private void openBrowser() {
+        handler.removeCallbacksAndMessages(null);
+        releasePlayer();
+        MainActivity.browse(this);
+        finish();
     }
 
     // -------------------------------------------------------------- input
@@ -348,8 +541,11 @@ public class PlayerActivity extends Activity {
         int size = queue.size();
         index = ((i % size) + size) % size;
         Channel c = queue.get(index);
-        lastUrl = c.url;
         ready = false;
+        reconnects = 0;
+        handler.removeCallbacks(retry);
+        handler.removeCallbacks(networkWatch);
+        Session.channelStarted(this, c, category);
 
         number.setText(String.valueOf(index + 1));
         name.setText(c.name);
@@ -377,6 +573,7 @@ public class PlayerActivity extends Activity {
         player.prepare();
         player.setPlayWhenReady(true);
 
+        showStatusRes(R.string.status_connecting);
         handler.removeCallbacks(startTimeout);
         handler.postDelayed(startTimeout, START_TIMEOUT_MS);
         if (isPanelOpen()) panelAdapter.notifyDataSetChanged();
@@ -388,7 +585,10 @@ public class PlayerActivity extends Activity {
         handler.removeCallbacks(startTimeout);
         Channel bad = queue.remove(index);
         // Favourites stay in your list even if they fail once (they may be back later).
-        if (!Store.favourites(this).contains(bad.url)) DEAD.add(bad.url);
+        if (!Store.favourites(this).contains(bad.url)) {
+            repo.removeDead(Collections.singletonList(bad.url));
+        }
+        if (queue.isEmpty()) Session.forgetIfLast(this, bad.url);
         showMessage(getString(R.string.skipping, bad.name, reason));
         panelAdapter.notifyDataSetChanged();
         if (queue.isEmpty()) {

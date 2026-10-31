@@ -1,6 +1,7 @@
 package com.ghar.tv;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,43 +21,30 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Channel browser. Categories on the left, working channels on the right.
- * Channels appear only after passing the health check (see Probe).
+ * Channel browser (the full grid). Categories on the left, working channels on the right.
+ *
+ * When the app is launched and you have watched something before, this screen hands over
+ * to the player straight away, so the last channel resumes without any browsing.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements Repo.Listener {
 
-    private static final String ALL = "All";
-    private static final String FAVOURITES = "Favourites";
-    private static final String NEPAL = "Nepal";
-    private static final String INDIA = "India";
+    /** Opened on purpose from the player ("All channels"), not as the app's start. */
+    static final String EXTRA_BROWSE = "browse";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final NumberFormat numbers = NumberFormat.getIntegerInstance();
 
-    private List<Channel> all = new ArrayList<>();
-    private final List<Channel> working = new ArrayList<>();
-    private final Set<String> workingUrls = new HashSet<>();
+    private Repo repo;
     private final List<Channel> shown = new ArrayList<>();
     private Set<String> favourites = new HashSet<>();
 
-    private Store.ScanCache cache = new Store.ScanCache();
-    private Scanner scanner;
-    private final ConcurrentLinkedQueue<Channel> passed = new ConcurrentLinkedQueue<>();
-    private final AtomicInteger checked = new AtomicInteger();
-    private int toCheck;
-    private boolean scanning;
-    private int ticks;
-
-    private String category = ALL;
-    private final List<String> categoryNames = new ArrayList<>();
+    private String category = Repo.ALL;
+    private final List<String> categoryNames = Repo.categoryNames();
     private final List<View> categoryRows = new ArrayList<>();
+    private boolean browseMode;
+    private boolean positionedOnLast;
 
     private TextView status;
     private TextView empty;
@@ -64,34 +52,40 @@ public class MainActivity extends Activity {
     private LinearLayout categoryList;
     private ChannelAdapter adapter;
     private View highlighted;
-    private boolean destroyed;
-
-    /** While scanning: move newly passed channels onto the screen once a second. */
-    private final Runnable flush = new Runnable() {
-        @Override
-        public void run() {
-            drainPassed();
-            if (scanning) {
-                if (++ticks % 20 == 0) saveCacheAsync(); // keep progress if the app is closed
-                handler.postDelayed(this, 1000);
-            }
-        }
-    };
 
     private String pendingCategory;
     private final Runnable selectPendingCategory = () -> {
-        if (pendingCategory != null) selectCategory(pendingCategory, false);
+        if (pendingCategory != null) selectCategory(pendingCategory);
     };
+
+    /** Opens the browser from inside the player. */
+    static void browse(Activity from) {
+        from.startActivity(new Intent(from, MainActivity.class)
+                .putExtra(EXTRA_BROWSE, true)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        browseMode = getIntent().getBooleanExtra(EXTRA_BROWSE, false);
+
+        // App launch with a saved session: go straight back to the last channel.
+        if (!browseMode && savedInstanceState == null && Session.lastChannel(this) != null) {
+            PlayerActivity.resume(this);
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_main);
+        repo = Repo.get(this);
         status = findViewById(R.id.status);
         empty = findViewById(R.id.empty);
         grid = findViewById(R.id.grid);
         categoryList = findViewById(R.id.categories);
         favourites = Store.favourites(this);
+        category = Session.category(this);
+        if (!categoryNames.contains(category)) category = Repo.ALL;
         if (!Device.isTv(this)) ((TextView) findViewById(R.id.hint)).setText(R.string.hint_phone);
 
         findViewById(R.id.rescan).setOnClickListener(v -> confirmRescan());
@@ -105,7 +99,7 @@ public class MainActivity extends Activity {
             favourites = Store.favourites(this);
             toast(added ? "★ Added " + c.name + " to Favourites" : "Removed " + c.name + " from Favourites");
             updateCategoryCounts();
-            if (FAVOURITES.equals(category)) applyFilter(false);
+            if (Repo.FAVOURITES.equals(category)) applyFilter(false);
             else adapter.notifyDataSetChanged();
             return true;
         });
@@ -123,221 +117,101 @@ public class MainActivity extends Activity {
         grid.setOnFocusChangeListener((v, has) -> highlight(has ? grid.getSelectedView() : null));
 
         buildCategories();
-        status.setText(R.string.loading_list);
-        loadEverything();
+        repo.addListener(this);
+        onRepoChanged();
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        removeDeadChannels();
+    protected void onStart() {
+        super.onStart();
+        if (repo != null) repo.screenStarted();
+    }
+
+    @Override
+    protected void onStop() {
+        if (repo != null) repo.screenStopped();
+        super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        destroyed = true;
         handler.removeCallbacksAndMessages(null);
-        if (scanner != null) scanner.cancel();
-        if (scanning) saveCacheAsync();
-        io.shutdown();
+        if (repo != null) repo.removeListener(this);
         super.onDestroy();
+    }
+
+    /** Back from the browser returns to the channel you were watching (if any); otherwise exits. */
+    @Override
+    public void onBackPressed() {
+        if (browseMode && Session.lastChannel(this) != null) {
+            PlayerActivity.resume(this);
+            finish();
+        } else {
+            repo.exitNow();
+            finish();
+        }
     }
 
     private void toast(String s) {
         Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
     }
 
-    // ----------------------------------------------------------- loading
+    // ------------------------------------------------------------- repo
 
-    private void loadEverything() {
-        io.execute(() -> {
-            List<Channel> list;
-            try {
-                list = Playlist.load(this);
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    if (destroyed) return;
-                    status.setText(R.string.list_error);
-                    showEmpty(getString(R.string.list_error_detail));
-                });
-                return;
+    @Override
+    public void onRepoChanged() {
+        updateCategoryCounts();
+        applyFilter(false);
+        if (repo.loadFailed) {
+            status.setText(R.string.list_error);
+            showEmpty(getString(R.string.list_error_detail));
+        } else if (!repo.loaded) {
+            status.setText(R.string.loading_list);
+        } else if (repo.scanning) {
+            status.setText(getString(R.string.scanning, numbers.format(repo.checked.get()),
+                    numbers.format(repo.toCheck), numbers.format(repo.working.size())));
+        } else {
+            showDoneStatus();
+        }
+        // Coming from the player: put the selection on the channel you were watching.
+        if (browseMode && !positionedOnLast && !shown.isEmpty()) {
+            Channel last = Session.lastChannel(this);
+            int i = last == null ? -1 : Repo.indexOf(shown, last.url);
+            if (i >= 0) {
+                grid.setSelection(i);
+                grid.requestFocus();
+                positionedOnLast = true;
             }
-            Store.ScanCache saved = Store.loadScan(this);
-            runOnUiThread(() -> {
-                if (destroyed) return;
-                all = list;
-                // Reuse saved results forever, unless the last scan found nothing at all
-                // (e.g. the internet was down while it ran).
-                if (saved.hasResults() && !(saved.complete && saved.working.isEmpty())) {
-                    cache = saved;
-                    for (Channel c : all) {
-                        Boolean hls = cache.working.get(c.url);
-                        if (hls != null) {
-                            c.hls = hls;
-                            addWorking(c);
-                        }
-                    }
-                    updateCategoryCounts();
-                    applyFilter(true);
-                    if (cache.complete) {
-                        showDoneStatus();
-                    } else {
-                        List<Channel> rest = new ArrayList<>();
-                        for (Channel c : all) if (!cache.checked.contains(c.url)) rest.add(c);
-                        startScan(rest);
-                    }
-                } else {
-                    fullRescan(saved);
-                }
-            });
-        });
+        }
     }
 
-    /** A full check takes a while, so ask first. */
     private void confirmRescan() {
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(R.string.rescan_title)
-                .setMessage(getString(R.string.rescan_message, numbers.format(all.size())))
-                .setPositiveButton(R.string.rescan, (d, w) -> fullRescan(cache))
+                .setMessage(getString(R.string.rescan_message, numbers.format(repo.all.size())))
+                .setPositiveButton(R.string.rescan, (d, w) -> repo.fullRescan())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    /** Checks every channel again; channels that worked last time are checked first. */
-    private void fullRescan(Store.ScanCache previous) {
-        if (scanner != null) scanner.cancel();
-        Set<String> previouslyWorking;
-        synchronized (previous) {
-            previouslyWorking = new HashSet<>(previous.working.keySet());
-        }
-        List<Channel> order = new ArrayList<>();
-        List<Channel> rest = new ArrayList<>();
-        for (Channel c : all) {
-            if (previouslyWorking.contains(c.url)) order.add(c);
-            else rest.add(c);
-        }
-        order.addAll(rest);
-
-        cache = new Store.ScanCache();
-        cache.time = System.currentTimeMillis();
-        working.clear();
-        workingUrls.clear();
-        passed.clear();
-        updateCategoryCounts();
-        applyFilter(true);
-        startScan(order);
-    }
-
-    private void startScan(List<Channel> list) {
-        scanning = true;
-        toCheck = list.size();
-        checked.set(0);
-        updateScanStatus();
-        Store.ScanCache target = cache;
-        scanner = new Scanner();
-        scanner.start(list, new Scanner.Listener() {
-            @Override
-            public void onChecked(Channel c, boolean ok) {
-                synchronized (target) {
-                    target.checked.add(c.url);
-                    if (ok) target.working.put(c.url, c.hls);
-                }
-                checked.incrementAndGet();
-                if (ok) passed.add(c);
-            }
-
-            @Override
-            public void onFinished() {
-                synchronized (target) {
-                    target.complete = true;
-                    Store.saveScan(MainActivity.this, target);
-                }
-                runOnUiThread(() -> {
-                    if (destroyed || target != cache) return;
-                    scanning = false;
-                    drainPassed();
-                    showDoneStatus();
-                });
-            }
-        });
-        handler.removeCallbacks(flush);
-        handler.post(flush);
-    }
-
-    private void saveCacheAsync() {
-        Store.ScanCache target = cache;
-        new Thread(() -> {
-            synchronized (target) {
-                Store.saveScan(getApplicationContext(), target);
-            }
-        }).start();
-    }
-
-    private void drainPassed() {
-        boolean added = false;
-        Channel c;
-        while ((c = passed.poll()) != null) added |= addWorking(c);
-        if (added) {
-            updateCategoryCounts();
-            applyFilter(false);
-        } else if (shown.isEmpty()) {
-            updateEmpty();
-        }
-        if (scanning) updateScanStatus();
-    }
-
-    private boolean addWorking(Channel c) {
-        if (!workingUrls.add(c.url)) return false;
-        working.add(c);
-        return true;
-    }
-
-    private void updateScanStatus() {
-        status.setText(getString(R.string.scanning,
-                numbers.format(checked.get()), numbers.format(toCheck), numbers.format(working.size())));
-    }
-
     private void showDoneStatus() {
-        long hours = (System.currentTimeMillis() - cache.time) / 3_600_000L;
+        long time = repo.cache.time;
+        if (time == 0) {
+            status.setText("");
+            return;
+        }
+        long hours = (System.currentTimeMillis() - time) / 3_600_000L;
         String when = hours < 1 ? getString(R.string.just_now)
                 : hours < 48 ? getString(R.string.hours_ago, hours)
                 : getString(R.string.days_ago, hours / 24);
-        status.setText(getString(R.string.done, numbers.format(working.size()), when));
-        updateEmpty();
-    }
-
-    /** Channels that failed while you were watching are taken off the list. */
-    private void removeDeadChannels() {
-        if (PlayerActivity.DEAD.isEmpty()) return;
-        List<String> dead;
-        synchronized (PlayerActivity.DEAD) {
-            dead = new ArrayList<>(PlayerActivity.DEAD);
-            PlayerActivity.DEAD.clear();
-        }
-        for (String url : dead) {
-            workingUrls.remove(url);
-            synchronized (cache) {
-                cache.working.remove(url);
-            }
-        }
-        for (int i = working.size() - 1; i >= 0; i--) {
-            if (dead.contains(working.get(i).url)) working.remove(i);
-        }
-        updateCategoryCounts();
-        applyFilter(false);
-        saveCacheAsync();
-        if (!scanning) showDoneStatus();
+        String text = getString(R.string.done, numbers.format(repo.working.size()), when);
+        if (!repo.cache.complete) text += getString(R.string.scan_paused);
+        status.setText(text);
     }
 
     // -------------------------------------------------------- categories
 
     private void buildCategories() {
-        categoryNames.add(ALL);
-        categoryNames.add(FAVOURITES);
-        categoryNames.add(NEPAL);
-        categoryNames.add(INDIA);
-        for (String c : Playlist.CATEGORY_ORDER) categoryNames.add(c);
-
         LayoutInflater inflater = LayoutInflater.from(this);
         for (String name : categoryNames) {
             View row = inflater.inflate(R.layout.item_category, categoryList, false);
@@ -350,47 +224,36 @@ public class MainActivity extends Activity {
                 }
             });
             row.setOnClickListener(v -> {
-                selectCategory(name, false);
+                selectCategory(name);
                 grid.requestFocus();
             });
             categoryList.addView(row);
             categoryRows.add(row);
         }
-        categoryRows.get(0).setActivated(true);
+        markCategory();
     }
 
-    private void selectCategory(String name, boolean force) {
-        if (!force && name.equals(category)) return;
+    private void selectCategory(String name) {
+        if (name.equals(category)) return;
         category = name;
-        for (int i = 0; i < categoryRows.size(); i++) {
-            categoryRows.get(i).setActivated(categoryNames.get(i).equals(name));
-        }
+        Session.setCategory(this, name);
+        markCategory();
         applyFilter(true);
+    }
+
+    private void markCategory() {
+        for (int i = 0; i < categoryRows.size(); i++) {
+            categoryRows.get(i).setActivated(categoryNames.get(i).equals(category));
+        }
     }
 
     private void updateCategoryCounts() {
         for (int i = 0; i < categoryNames.size(); i++) {
             String name = categoryNames.get(i);
-            int n = 0;
-            for (Channel c : working) if (matches(c, name)) n++;
+            int n = repo.count(name, favourites);
             View row = categoryRows.get(i);
             ((TextView) row.findViewById(R.id.cat_count)).setText(n == 0 ? "" : numbers.format(n));
-            row.setAlpha(n == 0 && !ALL.equals(name) ? 0.45f : 1f);
-        }
-    }
-
-    private boolean matches(Channel c, String name) {
-        switch (name) {
-            case ALL:
-                return true;
-            case FAVOURITES:
-                return favourites.contains(c.url);
-            case NEPAL:
-                return "np".equals(c.country);
-            case INDIA:
-                return "in".equals(c.country);
-            default:
-                return c.categories.contains(name);
+            row.setAlpha(n == 0 && !Repo.ALL.equals(name) ? 0.45f : 1f);
         }
     }
 
@@ -398,7 +261,7 @@ public class MainActivity extends Activity {
 
     private void applyFilter(boolean resetPosition) {
         shown.clear();
-        for (Channel c : working) if (matches(c, category)) shown.add(c);
+        shown.addAll(repo.channels(category, favourites));
         adapter.notifyDataSetChanged();
         if (resetPosition && !shown.isEmpty()) grid.setSelection(0);
         updateEmpty();
@@ -409,9 +272,9 @@ public class MainActivity extends Activity {
             empty.setVisibility(View.GONE);
             return;
         }
-        if (scanning) showEmpty(getString(R.string.empty_scanning));
-        else if (FAVOURITES.equals(category)) showEmpty(getString(R.string.empty_favourites));
-        else if (!all.isEmpty()) showEmpty(getString(R.string.empty_category));
+        if (repo.scanning || !repo.loaded) showEmpty(getString(R.string.empty_scanning));
+        else if (Repo.FAVOURITES.equals(category)) showEmpty(getString(R.string.empty_favourites));
+        else showEmpty(getString(R.string.empty_category));
     }
 
     private void showEmpty(String text) {
@@ -419,9 +282,11 @@ public class MainActivity extends Activity {
         empty.setVisibility(View.VISIBLE);
     }
 
+    /** Watching replaces this screen, so Back from the player leaves the app cleanly. */
     private void play(int position) {
         if (shown.isEmpty()) return;
-        PlayerActivity.start(this, new ArrayList<>(shown), position);
+        PlayerActivity.start(this, new ArrayList<>(shown), position, category);
+        finish();
     }
 
     private void highlight(View view) {
@@ -434,21 +299,6 @@ public class MainActivity extends Activity {
         tile.setActivated(on);
         View card = tile.findViewById(R.id.card);
         card.animate().scaleX(on ? 1.08f : 1f).scaleY(on ? 1.08f : 1f).setDuration(150).start();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        // After watching, put the selection on the last channel you watched.
-        String url = PlayerActivity.lastUrl;
-        if (url == null) return;
-        for (int i = 0; i < shown.size(); i++) {
-            if (shown.get(i).url.equals(url)) {
-                grid.setSelection(i);
-                grid.requestFocus();
-                break;
-            }
-        }
     }
 
     private class ChannelAdapter extends BaseAdapter {
@@ -491,7 +341,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static String initials(String name) {
+    static String initials(String name) {
         StringBuilder sb = new StringBuilder();
         for (String w : name.split("\\s+")) {
             if (!w.isEmpty() && Character.isLetterOrDigit(w.charAt(0))) sb.append(w.charAt(0));

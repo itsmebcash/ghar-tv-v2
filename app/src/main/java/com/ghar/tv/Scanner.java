@@ -17,10 +17,13 @@ final class Scanner {
         void onFinished();
     }
 
-    private static final int THREADS = 24;
-
-    private final ExecutorService pool = Executors.newFixedThreadPool(THREADS);
+    private final ExecutorService pool;
     private volatile boolean cancelled;
+
+    /** @param threads how many channels to check at once */
+    Scanner(int threads) {
+        pool = Executors.newFixedThreadPool(Math.max(1, threads));
+    }
 
     void start(List<Channel> channels, Listener listener) {
         if (channels.isEmpty()) {

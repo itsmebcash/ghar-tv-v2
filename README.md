@@ -16,8 +16,18 @@ time, so the app opens instantly. It never rescans on its own — only when you 
 **Favourites** (hold OK on a channel) are saved permanently, survive app updates and
 rescans, and are never removed from your list if they fail once while watching.
 
-While watching, a channel that stops or doesn't start within 12 seconds is
-skipped automatically and removed from the list.
+**Opens where you left off.** The app starts straight into the last channel you watched
+(even after Android closed it in the background). **Back** while watching saves everything,
+stops the video and leaves the app. The full channel grid is under **All channels ›** in the
+channel list; Back from the grid returns to your channel.
+
+**Playback:** starts after ~2 seconds of video, keeps up to 60 seconds in reserve, and adapts
+quality to your connection. If a playing channel drops, it reconnects automatically (up to 3
+tries). When the internet is down it waits and resumes instead of skipping channels. A channel
+that never starts within 12 seconds (while online) is skipped and removed from the list.
+
+Channel checking pauses as soon as the app is closed and continues next time it's open
+(more gently while you're watching, so the video keeps the bandwidth).
 
 ## TV remote
 
@@ -30,7 +40,7 @@ skipped automatically and removed from the list.
 | Watching | CH+ / CH− | Switch channel directly |
 | Watching | OK | Show channel info |
 | Watching | Right / Menu | Screen mode: Fit → Fill → Stretch |
-| Watching | Back | Back to the browser |
+| Watching | Back | Close the list, or save and exit the app |
 
 ## Phone (same APK)
 
@@ -39,7 +49,7 @@ skipped automatically and removed from the list.
 | Browser | Tap / long-press | Watch / add to Favourites |
 | Watching | Swipe up / down | Next / previous channel |
 | Watching | Tap | Show controls: **Channels** list, **Fit / Fill / Stretch**, and rotation **Auto / Portrait / Landscape** |
-| Watching | Back | Close list / back to the browser |
+| Watching | Back | Close the list, or save and exit the app |
 
 Screen modes: **Fit** shows the whole picture (black bars if needed), **Fill** zooms to
 cover the screen (edges cropped), **Stretch** stretches to full screen. Your choice is remembered.
