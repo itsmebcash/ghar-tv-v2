@@ -42,9 +42,9 @@
         android:background="@drawable/info_scrim"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="40dp"
+        android:paddingStart="@dimen/info_side"
         android:paddingTop="60dp"
-        android:paddingEnd="40dp"
+        android:paddingEnd="@dimen/info_side"
         android:paddingBottom="28dp">
 
         <TextView
@@ -58,9 +58,9 @@
 
         <ImageView
             android:id="@+id/channel_logo"
-            android:layout_width="88dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="14dp"
+            android:layout_width="@dimen/info_logo_w"
+            android:layout_height="@dimen/info_logo_h"
+            android:layout_marginStart="12dp"
             android:background="@drawable/logo_bg"
             android:importantForAccessibility="no"
             android:padding="8dp"
@@ -101,23 +101,33 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Phone only -->
-        <LinearLayout
-            android:id="@+id/controls"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+    </LinearLayout>
 
-            <TextView
-                android:id="@+id/channels_button"
-                style="@style/PillButton"
-                android:text="@string/channels" />
+    <!-- Phone controls (top right), shown with the channel info -->
+    <LinearLayout
+        android:id="@+id/controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="16dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
 
-            <TextView
-                android:id="@+id/mode_button"
-                style="@style/PillButton"
-                android:layout_marginStart="10dp" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/channels_button"
+            style="@style/PillButton"
+            android:text="@string/channels" />
+
+        <TextView
+            android:id="@+id/mode_button"
+            style="@style/PillButton"
+            android:layout_marginStart="8dp" />
+
+        <TextView
+            android:id="@+id/rotate_button"
+            style="@style/PillButton"
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <!-- Channel list over the video -->
@@ -136,7 +146,8 @@
             android:focusable="false" />
 
         <LinearLayout
-            android:layout_width="380dp"
+            android:id="@+id/panel_box"
+            android:layout_width="@dimen/panel_width"
             android:layout_height="match_parent"
             android:layout_gravity="start"
             android:background="#F00A0C14"

@@ -43,7 +43,8 @@ import java.util.Set;
  * TV:    Up / Down = open channel list (scroll, OK to watch), CH+ / CH- = switch directly,
  *        OK = channel info, Right = screen mode, Back = close list / back to browser.
  * Phone: swipe up = next channel, swipe down = previous, tap = controls
- *        (Channels list, Fit / Fill / Stretch).
+ *        (Channels list, Fit / Fill / Stretch, rotation: Auto / Portrait / Landscape).
+ *        Holding the phone upright plays upright; nothing is forced.
  *
  * A channel that doesn't start within START_TIMEOUT_MS, or errors, is skipped automatically.
  */
@@ -59,6 +60,15 @@ public class PlayerActivity extends Activity {
             AspectRatioFrameLayout.RESIZE_MODE_FILL,
     };
     private static final int[] MODE_LABELS = {R.string.mode_fit, R.string.mode_fill, R.string.mode_stretch};
+
+    /** Phone only: follow how the phone is held, or lock it. */
+    private static final int[] ORIENTATIONS = {
+            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
+            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
+            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+    };
+    private static final int[] ORIENTATION_LABELS = {R.string.rotate_auto, R.string.rotate_portrait, R.string.rotate_landscape};
+    private int orientation;
 
     /** Channels that failed while watching; MainActivity removes them from the list. */
     static final Set<String> DEAD = Collections.synchronizedSet(new HashSet<String>());
@@ -87,6 +97,8 @@ public class PlayerActivity extends Activity {
     private ProgressBar spinner;
     private TextView message;
     private TextView modeButton;
+    private TextView rotateButton;
+    private View controls;
     private View panel;
     private ListView panelList;
     private PanelAdapter panelAdapter;
@@ -128,9 +140,16 @@ public class PlayerActivity extends Activity {
         panelList = findViewById(R.id.panel_list);
 
         ((TextView) findViewById(R.id.hint)).setText(isTv ? R.string.player_hint_tv : R.string.player_hint_phone);
-        findViewById(R.id.controls).setVisibility(isTv ? View.GONE : View.VISIBLE);
+        controls = findViewById(R.id.controls);
+        controls.setVisibility(View.GONE);
+        rotateButton = findViewById(R.id.rotate_button);
         findViewById(R.id.channels_button).setOnClickListener(v -> openPanel());
         modeButton.setOnClickListener(v -> cycleScreenMode());
+        rotateButton.setOnClickListener(v -> cycleOrientation());
+        if (!isTv) {
+            orientation = Store.orientation(this);
+            applyOrientation(false);
+        }
         findViewById(R.id.panel_scrim).setOnClickListener(v -> closePanel());
 
         panelAdapter = new PanelAdapter();
@@ -201,6 +220,27 @@ public class PlayerActivity extends Activity {
         });
 
         play(index);
+    }
+
+    /**
+     * Rotating the phone doesn't restart the stream (the activity handles it itself),
+     * so re-apply the portrait / landscape sizes from dimens.xml here.
+     */
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        android.content.res.Resources r = getResources();
+        int side = r.getDimensionPixelSize(R.dimen.info_side);
+        info.setPadding(side, info.getPaddingTop(), side, info.getPaddingBottom());
+        ViewGroup.LayoutParams lp = logo.getLayoutParams();
+        lp.width = r.getDimensionPixelSize(R.dimen.info_logo_w);
+        lp.height = r.getDimensionPixelSize(R.dimen.info_logo_h);
+        logo.setLayoutParams(lp);
+        View box = findViewById(R.id.panel_box);
+        ViewGroup.LayoutParams bp = box.getLayoutParams();
+        bp.width = r.getDimensionPixelSize(R.dimen.panel_width);
+        box.setLayoutParams(bp);
+        if (!isTv) hideSystemBars();
     }
 
     @Override
@@ -375,6 +415,23 @@ public class PlayerActivity extends Activity {
         if (announce) showMessage(getString(R.string.screen_mode, label));
     }
 
+    // ---------------------------------------------------------- rotation
+
+    private void cycleOrientation() {
+        orientation = (orientation + 1) % ORIENTATIONS.length;
+        Store.setOrientation(this, orientation);
+        applyOrientation(true);
+        showInfo();
+    }
+
+    private void applyOrientation(boolean announce) {
+        if (orientation < 0 || orientation >= ORIENTATIONS.length) orientation = 0;
+        setRequestedOrientation(ORIENTATIONS[orientation]);
+        String label = getString(ORIENTATION_LABELS[orientation]);
+        rotateButton.setText(label);
+        if (announce) showMessage(getString(R.string.rotation, label));
+    }
+
     // ------------------------------------------------------ overlays
 
     private void showMessage(String text) {
@@ -388,6 +445,11 @@ public class PlayerActivity extends Activity {
         handler.removeCallbacks(hideInfo);
         info.animate().cancel();
         info.setVisibility(View.VISIBLE);
+        if (!isTv) {
+            controls.animate().cancel();
+            controls.setVisibility(View.VISIBLE);
+            controls.setAlpha(1f);
+        }
         info.setAlpha(1f);
         handler.postDelayed(hideInfo, INFO_VISIBLE_MS);
     }
@@ -395,6 +457,10 @@ public class PlayerActivity extends Activity {
     private void hideInfoNow() {
         handler.removeCallbacks(hideInfo);
         info.animate().alpha(0f).setDuration(300).withEndAction(() -> info.setVisibility(View.GONE)).start();
+        if (!isTv) {
+            controls.animate().alpha(0f).setDuration(300)
+                    .withEndAction(() -> controls.setVisibility(View.GONE)).start();
+        }
     }
 
     private void toggleInfo() {

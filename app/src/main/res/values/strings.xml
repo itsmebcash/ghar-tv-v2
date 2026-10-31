@@ -24,6 +24,10 @@
     <string name="mode_fill">Fill</string>
     <string name="mode_stretch">Stretch</string>
     <string name="screen_mode">Screen: %1$s</string>
+    <string name="rotate_auto">Auto rotate</string>
+    <string name="rotate_portrait">Portrait</string>
+    <string name="rotate_landscape">Landscape</string>
+    <string name="rotation">Rotation: %1$s</string>
     <string name="hint_phone">Long-press a channel to add it to Favourites</string>
     <string name="skip_slow">too slow to start</string>
     <string name="skip_error">not working</string>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone held upright: tighter overlay, channel list covers most of the width -->
+<resources>
+    <dimen name="info_side">16dp</dimen>
+    <dimen name="info_logo_w">64dp</dimen>
+    <dimen name="info_logo_h">40dp</dimen>
+    <dimen name="panel_width">300dp</dimen>
+</resources>

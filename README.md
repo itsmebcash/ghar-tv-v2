@@ -38,11 +38,14 @@ skipped automatically and removed from the list.
 |---|---|---|
 | Browser | Tap / long-press | Watch / add to Favourites |
 | Watching | Swipe up / down | Next / previous channel |
-| Watching | Tap | Show controls: **Channels** list and **Fit / Fill / Stretch** |
+| Watching | Tap | Show controls: **Channels** list, **Fit / Fill / Stretch**, and rotation **Auto / Portrait / Landscape** |
 | Watching | Back | Close list / back to the browser |
 
 Screen modes: **Fit** shows the whole picture (black bars if needed), **Fill** zooms to
 cover the screen (edges cropped), **Stretch** stretches to full screen. Your choice is remembered.
+
+Rotation: video plays the way you hold the phone (upright or sideways) — nothing is forced.
+**Auto rotate** follows the phone; **Portrait** / **Landscape** lock it. Also remembered.
 
 ## Build and install (TV)
 

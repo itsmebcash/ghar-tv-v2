@@ -97,6 +97,15 @@ final class Store {
         prefs(c).edit().putInt("screen_mode", mode).apply();
     }
 
+    /** Phone: 0 = follow the phone, 1 = portrait, 2 = landscape. */
+    static int orientation(Context c) {
+        return prefs(c).getInt("orientation", 0);
+    }
+
+    static void setOrientation(Context c, int value) {
+        prefs(c).edit().putInt("orientation", value).apply();
+    }
+
     // ----------------------------------------------------------- favourites
 
     private static SharedPreferences prefs(Context c) {

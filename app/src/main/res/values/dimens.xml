@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="info_side">40dp</dimen>
+    <dimen name="info_logo_w">88dp</dimen>
+    <dimen name="info_logo_h">52dp</dimen>
+    <dimen name="panel_width">380dp</dimen>
+</resources>
