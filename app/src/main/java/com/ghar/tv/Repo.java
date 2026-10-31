@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 final class Repo {
 
+    static final String RECENT = "Last Watched";
     static final String ALL = "All";
     static final String FAVOURITES = "Favourites";
     static final String NEPAL = "Nepal";
@@ -304,6 +305,7 @@ final class Repo {
 
     static List<String> categoryNames() {
         List<String> names = new ArrayList<>();
+        names.add(RECENT);
         names.add(ALL);
         names.add(FAVOURITES);
         names.add(NEPAL);
@@ -328,15 +330,27 @@ final class Repo {
     }
 
     List<Channel> channels(String category, Set<String> favourites) {
+        if (RECENT.equals(category)) return recent();
         List<Channel> out = new ArrayList<>();
         for (Channel c : working) if (matches(c, category, favourites)) out.add(c);
         return out;
     }
 
     int count(String category, Set<String> favourites) {
+        if (RECENT.equals(category)) return Session.recent(app).size();
         int n = 0;
         for (Channel c : working) if (matches(c, category, favourites)) n++;
         return n;
+    }
+
+    /** Recently watched, newest first. Uses the live channel entry when it's in the list. */
+    private List<Channel> recent() {
+        List<Channel> out = new ArrayList<>();
+        for (Channel saved : Session.recent(app)) {
+            int i = indexOf(working, saved.url);
+            out.add(i >= 0 ? working.get(i) : saved);
+        }
+        return out;
     }
 
     static int indexOf(List<Channel> list, String url) {

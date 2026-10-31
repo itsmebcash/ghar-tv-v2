@@ -29,33 +29,47 @@ that never starts within 12 seconds (while online) is skipped and removed from t
 Channel checking pauses as soon as the app is closed and continues next time it's open
 (more gently while you're watching, so the video keeps the bandwidth).
 
+## Watching and browsing at the same time
+
+**TV, or phone held sideways:** the video fills the screen. The bottom bar shows the channel
+number, logo, name, programme (when the stream provides it; otherwise category · country)
+and a 12-hour clock, plus the controls on a phone. **★ Favourite** sits at the top.
+Open the channel panel to browse **categories and channels side by side** while the current
+channel keeps playing.
+
+**Phone held upright:** a YouTube-style watch page — video on top; below it the channel info
+with clock and ★, a row of category chips, and the channel list. Tap a channel to switch.
+
+Categories everywhere: **Last Watched** (your 20 most recent), Favourites, All, Nepal, India,
+News, Sports, Movies…  Picking a channel from a category makes that category the
+channel-up/down order.
+
 ## TV remote
 
 | Where | Button | Action |
 |---|---|---|
-| Channel list | OK | Watch |
-| Channel list | Hold OK | Add / remove Favourite |
-| Categories (left) | Up / Down | Filter channels (All, Favourites, Nepal, India, News, Sports…) |
-| Watching | Up / Down / Left | Open the channel list over the video — scroll, OK to switch, Back to close |
+| Browser grid | OK / Hold OK | Watch / add or remove Favourite |
+| Watching | Up / Down / Left | Open the channel panel (Left/Right moves between categories and channels) |
+| Channel panel | OK / Hold OK | Switch to that channel / add or remove Favourite |
 | Watching | CH+ / CH− | Switch channel directly |
 | Watching | OK | Show channel info |
+| Watching | Hold OK | Add / remove the current channel from Favourites |
 | Watching | Right / Menu | Screen mode: Fit → Fill → Stretch |
-| Watching | Back | Close the list, or save and exit the app |
+| Watching | Back | Close the panel, or save and exit the app |
 
 ## Phone (same APK)
 
 | Where | Gesture | Action |
 |---|---|---|
-| Browser | Tap / long-press | Watch / add to Favourites |
-| Watching | Swipe up / down | Next / previous channel |
-| Watching | Tap | Show controls: **Channels** list, **Fit / Fill / Stretch**, and rotation **Auto / Portrait / Landscape** |
-| Watching | Back | Close the list, or save and exit the app |
+| Video | Swipe up / down | Next / previous channel |
+| Video | Tap | Show controls: ★, **Channels**, **Fit / Fill / Stretch**, rotation **Auto / Portrait / Landscape** |
+| Watch page / panel | Tap / long-press a channel | Switch / add or remove Favourite |
+| ★ next to the channel name | Tap | Add / remove Favourite |
+| Anywhere | Back | Close the panel, or save and exit the app |
 
 Screen modes: **Fit** shows the whole picture (black bars if needed), **Fill** zooms to
 cover the screen (edges cropped), **Stretch** stretches to full screen. Your choice is remembered.
-
-Rotation: video plays the way you hold the phone (upright or sideways) — nothing is forced.
-**Auto rotate** follows the phone; **Portrait** / **Landscape** lock it. Also remembered.
+Rotation follows how you hold the phone unless you lock it; also remembered.
 
 ## Build and install (TV)
 

@@ -274,6 +274,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         }
         if (repo.scanning || !repo.loaded) showEmpty(getString(R.string.empty_scanning));
         else if (Repo.FAVOURITES.equals(category)) showEmpty(getString(R.string.empty_favourites));
+        else if (Repo.RECENT.equals(category)) showEmpty(getString(R.string.empty_recent));
         else showEmpty(getString(R.string.empty_category));
     }
 

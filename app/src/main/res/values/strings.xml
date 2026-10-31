@@ -16,15 +16,25 @@
     <string name="status_reconnecting">Reconnecting… (%1$d of %2$d)</string>
     <string name="status_offline">No internet connection. Waiting to reconnect…</string>
     <string name="browse_all">All channels ›</string>
+    <string name="fav_add">☆  Favourite</string>
+    <string name="fav_remove">★  Favourite</string>
+    <string name="fav_hint_tv">Hold OK to add or remove</string>
+    <string name="fav_added">★  Added %1$s to Favourites</string>
+    <string name="fav_removed">Removed %1$s from Favourites</string>
+    <string name="favourite">Favourite</string>
+    <string name="star_empty">☆</string>
+    <string name="star_full">★</string>
+    <string name="now_playing">▶  %1$s</string>
+    <string name="empty_recent">Nothing watched yet. Channels you watch appear here.</string>
     <string name="rescan_title">Check all channels again?</string>
     <string name="rescan_message">Ghar TV will test all %1$s channels again to find which work today. This takes about 10–20 minutes; working channels reappear as they pass. Your favourites are kept.</string>
     <string name="empty_scanning">Finding working channels… they will appear here as they pass.</string>
     <string name="empty_favourites">No favourites yet. Hold OK on a channel to add it.</string>
     <string name="empty_category">No working channels in this category right now.</string>
     <string name="hint">Hold OK on a channel to add it to Favourites</string>
-    <string name="player_hint_tv">▲ ▼  channel list   ·   CH + / −  switch   ·   ▶  screen mode   ·   Back  exit</string>
+    <string name="player_hint_tv">▲ ▼  channels   ·   CH + / −  switch   ·   ▶  screen mode   ·   Hold OK  favourite   ·   Back  exit</string>
     <string name="player_hint_phone">Swipe up / down to change channel   ·   Tap for controls</string>
-    <string name="panel_hint">Choose a channel  ·  Back to close</string>
+    <string name="panel_hint">Pick a category, then a channel  ·  Hold OK = Favourite  ·  Back to close</string>
     <string name="channels">Channels</string>
     <string name="mode_fit">Fit</string>
     <string name="mode_fill">Fill</string>

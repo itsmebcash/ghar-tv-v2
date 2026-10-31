@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Phone held upright: tighter overlay, channel list covers most of the width -->
+<!-- Phone held upright: tighter overlay on the smaller video -->
 <resources>
-    <dimen name="info_side">16dp</dimen>
+    <dimen name="info_side">12dp</dimen>
     <dimen name="info_logo_w">64dp</dimen>
     <dimen name="info_logo_h">40dp</dimen>
-    <dimen name="panel_width">300dp</dimen>
+    <dimen name="panel_width">340dp</dimen>
+    <dimen name="panel_categories_width">120dp</dimen>
 </resources>
