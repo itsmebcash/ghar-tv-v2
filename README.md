@@ -58,8 +58,19 @@ channel-up/down order.
 | Watching | CH+ / CH− | Switch channel directly |
 | Watching | OK | Show channel info |
 | Watching | Hold OK | Add / remove the current channel from Favourites |
-| Watching | Menu (≡) | Options: subtitles, screen mode, favourite, add to playlist |
+| Watching | Menu (≡) | Options: **search**, subtitles, screen mode, favourite, add to playlist, **rescan** |
+| Channel panel | Search button (top) | Search by channel name, category or country |
 | Watching | Back | Close the panel, or save and exit the app |
+
+## Search and rescan
+
+- **Search:** the **Search…** row at the top of the categories (TV panel, phone chips and the
+  full grid), the **Search** button in the channel panel, or **Menu → Search channels…**.
+  Type part of a name, a category or a country code (e.g. `kantipur`, `news`, `np`).
+  Names starting with your words come first.
+- **Rescan:** **Menu → Rescan all channels…** while watching (phone: the **⋯** button), or the
+  **Rescan** button in the full grid. It asks first; channels refill as they pass. While a
+  channel is playing the check runs gently, so it takes longer than from the grid.
 
 ## My playlists
 

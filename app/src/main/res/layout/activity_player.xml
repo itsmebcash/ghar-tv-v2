@@ -257,6 +257,13 @@
                     android:id="@+id/rotate_button"
                     style="@style/PillButton"
                     android:layout_marginStart="8dp" />
+
+                <TextView
+                    android:id="@+id/more_button"
+                    style="@style/PillButton"
+                    android:layout_marginStart="8dp"
+                    android:minWidth="44dp"
+                    android:text="@string/more" />
             </LinearLayout>
 
             <!-- 12-hour clock -->
@@ -306,14 +313,33 @@
                     android:orientation="horizontal">
 
                     <TextView
+                        android:id="@+id/panel_title"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
+                        android:ellipsize="end"
                         android:fontFamily="sans-serif-light"
+                        android:singleLine="true"
                         android:text="@string/channels"
                         android:textColor="#FFFFFF"
                         android:textSize="24sp" />
+
+                    <TextView
+                        android:id="@+id/search_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/pill_button"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingStart="14dp"
+                        android:paddingTop="6dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="6dp"
+                        android:text="@string/search_button"
+                        android:textColor="@color/category_text"
+                        android:textSize="13sp" />
 
                     <TextView
                         android:id="@+id/browse_button"

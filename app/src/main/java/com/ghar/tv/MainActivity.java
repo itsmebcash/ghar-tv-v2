@@ -87,7 +87,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         favourites = Store.favourites(this);
         category = Session.category(this);
         categoryNames.addAll(Repo.categoryNames(this));
-        if (!categoryNames.contains(category) || Repo.NEW_PLAYLIST.equals(category)) category = Repo.ALL;
+        if (!categoryNames.contains(category) || Repo.isAction(category)) category = Repo.ALL;
         taps = new Taps(Device.isTv(this));
         if (!Device.isTv(this)) ((TextView) findViewById(R.id.hint)).setText(R.string.hint_phone);
 
@@ -209,12 +209,7 @@ public class MainActivity extends Activity implements Repo.Listener {
     }
 
     private void confirmRescan() {
-        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle(R.string.rescan_title)
-                .setMessage(getString(R.string.rescan_message, numbers.format(repo.all.size())))
-                .setPositiveButton(R.string.rescan, (d, w) -> repo.fullRescan())
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        Menus.confirmRescan(this, repo.all.size(), repo::fullRescan);
     }
 
     private void showDoneStatus() {
@@ -241,7 +236,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         for (String name : categoryNames) {
             View row = inflater.inflate(R.layout.item_category, categoryList, false);
             ((TextView) row.findViewById(R.id.cat_name)).setText(Repo.label(this, name));
-            boolean isNew = Repo.NEW_PLAYLIST.equals(name);
+            boolean isNew = Repo.isAction(name);
             row.setOnFocusChangeListener((v, has) -> {
                 if (has && !isNew) {
                     pendingCategory = name;
@@ -250,6 +245,10 @@ public class MainActivity extends Activity implements Repo.Listener {
                 }
             });
             row.setOnClickListener(v -> {
+                if (Repo.SEARCH_ROW.equals(name)) {
+                    askSearch();
+                    return;
+                }
                 if (isNew) {
                     Menus.newPlaylist(this, null, this::channelsChanged);
                     return;
@@ -267,6 +266,15 @@ public class MainActivity extends Activity implements Repo.Listener {
             categoryRows.add(row);
         }
         markCategory();
+    }
+
+    private void askSearch() {
+        String current = Repo.isSearch(category) ? category.substring(Repo.SEARCH.length()) : "";
+        Menus.search(this, current, q -> {
+            selectCategory(Repo.SEARCH + q);
+            status.setText(getString(R.string.search_results, q, shown.size()));
+            grid.requestFocus();
+        });
     }
 
     private void selectCategory(String name) {
@@ -289,7 +297,7 @@ public class MainActivity extends Activity implements Repo.Listener {
             int n = repo.count(name, favourites);
             View row = categoryRows.get(i);
             ((TextView) row.findViewById(R.id.cat_count)).setText(n == 0 ? "" : numbers.format(n));
-            boolean dim = n == 0 && !Repo.ALL.equals(name) && !Repo.NEW_PLAYLIST.equals(name)
+            boolean dim = n == 0 && !Repo.ALL.equals(name) && !Repo.isAction(name)
                     && !Repo.isPlaylist(name);
             row.setAlpha(dim ? 0.45f : 1f);
         }
@@ -314,6 +322,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         else if (Repo.FAVOURITES.equals(category)) showEmpty(getString(R.string.empty_favourites));
         else if (Repo.RECENT.equals(category)) showEmpty(getString(R.string.empty_recent));
         else if (Repo.isPlaylist(category)) showEmpty(getString(R.string.empty_playlist));
+        else if (Repo.isSearch(category)) showEmpty(getString(R.string.search_none, category.substring(Repo.SEARCH.length())));
         else showEmpty(getString(R.string.empty_category));
     }
 

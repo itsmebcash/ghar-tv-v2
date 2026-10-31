@@ -113,6 +113,48 @@ final class Menus {
                 .show();
     }
 
+    /** Search box (on TV the on-screen keyboard opens; OK / Search runs it). */
+    static void search(Activity a, String current, NameListener done) {
+        EditText input = new EditText(a);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setSingleLine(true);
+        input.setHint(R.string.search_hint);
+        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        input.setText(current == null ? "" : current);
+        input.setSelection(input.getText().length());
+        int pad = Math.round(a.getResources().getDisplayMetrics().density * 20);
+        FrameLayout box = new FrameLayout(a);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+        AlertDialog d = dialog(a).setTitle(R.string.search_title).setView(box)
+                .setPositiveButton(R.string.search_button, (dlg, w) -> {
+                    String q = input.getText().toString().trim();
+                    if (!q.isEmpty()) done.onName(q);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        input.setOnEditorActionListener((v, actionId, e) -> {
+            String q = input.getText().toString().trim();
+            if (q.isEmpty()) return true;
+            d.dismiss();
+            done.onName(q);
+            return true;
+        });
+        d.show();
+        input.requestFocus();
+        d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+    }
+
+    /** Check every channel again (asks first: it takes a while). */
+    static void confirmRescan(Activity a, int channelCount, Runnable go) {
+        dialog(a).setTitle(R.string.rescan_title)
+                .setMessage(a.getString(R.string.rescan_message,
+                        java.text.NumberFormat.getIntegerInstance().format(channelCount)))
+                .setPositiveButton(R.string.rescan, (d, w) -> go.run())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     interface NameListener {
         void onName(String name);
     }

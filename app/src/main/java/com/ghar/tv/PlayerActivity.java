@@ -236,7 +236,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             restoring = true;
         }
         categoryNames.addAll(Repo.categoryNames(this));
-        if (!categoryNames.contains(category) || Repo.NEW_PLAYLIST.equals(category)) category = Repo.ALL;
+        if ((!categoryNames.contains(category) && !Repo.isSearch(category)) || Repo.isAction(category)) category = Repo.ALL;
         taps = new Taps(isTv);
         pendingQueue = null;
         pendingCategory = null;
@@ -320,6 +320,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         belowFav.setOnClickListener(v -> toggleFavourite(current()));
         findViewById(R.id.panel_scrim).setOnClickListener(v -> closePanel());
         findViewById(R.id.browse_button).setOnClickListener(v -> openBrowser());
+        findViewById(R.id.search_button).setOnClickListener(v -> askSearch());
+        findViewById(R.id.more_button).setOnClickListener(v -> showOptions());
 
         // Tap = watch; double-tap (phone) = favourite; hold OK / long-press = options & playlists.
         panelAdapter = new ChannelListAdapter();
@@ -387,10 +389,11 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         panelCategoryRows.clear();
         LayoutInflater inflater = LayoutInflater.from(this);
         for (String n : categoryNames) {
-            boolean isNew = Repo.NEW_PLAYLIST.equals(n);
+            boolean isNew = Repo.isAction(n);
             String label = Repo.label(this, n);
             View.OnClickListener click = v -> {
-                if (isNew) Menus.newPlaylist(this, null, this::channelsChanged);
+                if (Repo.SEARCH_ROW.equals(n)) askSearch();
+                else if (Repo.NEW_PLAYLIST.equals(n)) Menus.newPlaylist(this, null, this::channelsChanged);
                 else setBrowseCategory(n, true);
             };
             View.OnLongClickListener hold = v -> {
@@ -699,6 +702,13 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         browseList.clear();
         browseList.addAll(repo.channels(browseCategory, favs));
         updateCategoryCounts();
+        TextView title = findViewById(R.id.panel_title);
+        if (Repo.isSearch(browseCategory)) {
+            title.setText(getString(R.string.search_results,
+                    browseCategory.substring(Repo.SEARCH.length()), browseList.size()));
+        } else {
+            title.setText(R.string.channels);
+        }
         panelAdapter.notifyDataSetChanged();
         belowAdapter.notifyDataSetChanged();
         if (toTop) {
@@ -1111,24 +1121,53 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         return "Track " + n;
     }
 
+    /** Search all working channels by name, category or country; results appear in the list. */
+    private void askSearch() {
+        String current = Repo.isSearch(browseCategory) ? browseCategory.substring(Repo.SEARCH.length()) : "";
+        Menus.search(this, current, q -> {
+            setBrowseCategory(Repo.SEARCH + q, true);
+            showMessage(browseList.isEmpty()
+                    ? getString(R.string.search_none, q)
+                    : getString(R.string.search_found, browseList.size(), q));
+            if (!watchPage) {
+                if (!isPanelOpen()) openPanel(true);
+                panelList.post(() -> {
+                    panelList.requestFocus();
+                    panelList.setSelection(0);
+                });
+            }
+        });
+    }
+
+    private void rescan() {
+        Menus.confirmRescan(this, repo.all.size(), () -> {
+            repo.fullRescan();
+            showMessage(getString(R.string.rescan_started));
+        });
+    }
+
     /** TV Menu key: subtitles, screen mode, favourite and playlists in one place. */
     private void showOptions() {
         Channel c = current();
         if (c == null) return;
         boolean fav = favs.contains(c.url);
         String[] items = {
+                getString(R.string.option_search),
                 getString(R.string.option_subtitles),
                 getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
                 getString(fav ? R.string.menu_unfavourite : R.string.menu_favourite),
                 getString(R.string.menu_add_to_playlist),
+                getString(R.string.option_rescan),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(c.name)
                 .setItems(items, (d, w) -> {
-                    if (w == 0) chooseSubtitles();
-                    else if (w == 1) cycleScreenMode();
-                    else if (w == 2) toggleFavourite(c);
-                    else Menus.addToPlaylist(this, c, this::channelsChanged);
+                    if (w == 0) askSearch();
+                    else if (w == 1) chooseSubtitles();
+                    else if (w == 2) cycleScreenMode();
+                    else if (w == 3) toggleFavourite(c);
+                    else if (w == 4) Menus.addToPlaylist(this, c, this::channelsChanged);
+                    else rescan();
                 })
                 .show();
     }
@@ -1252,12 +1291,17 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     /** Browse without stopping playback. On the phone's watch page the list is already visible. */
     private void openPanel() {
+        openPanel(false);
+    }
+
+    /** @param keepBrowsing show what's being browsed (e.g. search results), not the playing category */
+    private void openPanel(boolean keepBrowsing) {
         if (watchPage) {
             scrollListsToCurrent();
             return;
         }
         hideInfoNow();
-        if (!category.equals(browseCategory)) setBrowseCategory(category, false);
+        if (!keepBrowsing && !category.equals(browseCategory)) setBrowseCategory(category, false);
         else refreshBrowse(false);
         panel.setVisibility(View.VISIBLE);
         panelList.post(() -> {

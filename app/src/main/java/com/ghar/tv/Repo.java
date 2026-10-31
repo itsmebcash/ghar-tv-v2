@@ -33,6 +33,10 @@ final class Repo {
     static final String PLAYLIST = "pl:";
     /** Not a category: the "+ New playlist" row. */
     static final String NEW_PLAYLIST = "+new";
+    /** Not a category: the "Search…" row that opens the search box. */
+    static final String SEARCH_ROW = "+search";
+    /** Search results: "q:" + what you typed. */
+    static final String SEARCH = "q:";
     static final String ALL = "All";
     static final String FAVOURITES = "Favourites";
     static final String NEPAL = "Nepal";
@@ -322,6 +326,7 @@ final class Repo {
     /** Category keys in display order: Last Watched, Favourites, your playlists, then the rest. */
     static List<String> categoryNames(Context c) {
         List<String> names = new ArrayList<>();
+        names.add(SEARCH_ROW);
         names.add(RECENT);
         names.add(FAVOURITES);
         for (Store.UserPlaylist p : Store.playlists(c)) names.add(PLAYLIST + p.id);
@@ -333,11 +338,22 @@ final class Repo {
     /** What to show for a category key. */
     static String label(Context c, String key) {
         if (NEW_PLAYLIST.equals(key)) return c.getString(R.string.new_playlist);
+        if (SEARCH_ROW.equals(key)) return c.getString(R.string.search_row);
+        if (isSearch(key)) return c.getString(R.string.search_label, key.substring(SEARCH.length()));
         if (key.startsWith(PLAYLIST)) {
             Store.UserPlaylist p = Store.playlist(c, key.substring(PLAYLIST.length()));
             return p == null ? "" : "♫  " + p.name;
         }
         return key;
+    }
+
+    static boolean isSearch(String key) {
+        return key != null && key.startsWith(SEARCH);
+    }
+
+    /** Rows that do something when chosen instead of showing channels. */
+    static boolean isAction(String key) {
+        return NEW_PLAYLIST.equals(key) || SEARCH_ROW.equals(key);
     }
 
     static boolean isPlaylist(String key) {
@@ -372,7 +388,8 @@ final class Repo {
 
     List<Channel> channels(String category, Set<String> favourites) {
         if (RECENT.equals(category)) return recent();
-        if (NEW_PLAYLIST.equals(category)) return new ArrayList<>();
+        if (isAction(category)) return new ArrayList<>();
+        if (isSearch(category)) return search(category.substring(SEARCH.length()));
         if (isPlaylist(category)) return playlistChannels(category);
         List<Channel> out = new ArrayList<>();
         for (Channel c : working) if (matches(c, category, favourites)) out.add(c);
@@ -381,11 +398,42 @@ final class Repo {
 
     int count(String category, Set<String> favourites) {
         if (RECENT.equals(category)) return Session.recent(app).size();
-        if (NEW_PLAYLIST.equals(category)) return 0;
+        if (isAction(category)) return 0;
+        if (isSearch(category)) return search(category.substring(SEARCH.length())).size();
         if (isPlaylist(category)) return playlistChannels(category).size();
         int n = 0;
         for (Channel c : working) if (matches(c, category, favourites)) n++;
         return n;
+    }
+
+    /**
+     * Working channels whose name (or category / country) contains every word you typed.
+     * Names that start with your search come first.
+     */
+    List<Channel> search(String query) {
+        List<Channel> starts = new ArrayList<>();
+        List<Channel> contains = new ArrayList<>();
+        String q = query.trim().toLowerCase(java.util.Locale.ROOT);
+        if (q.isEmpty()) return starts;
+        String[] words = q.split("\\s+");
+        for (Channel c : working) {
+            String name = c.name.toLowerCase(java.util.Locale.ROOT);
+            String hay = name + " " + android.text.TextUtils.join(" ", c.categories).toLowerCase(java.util.Locale.ROOT)
+                    + " " + c.country;
+            boolean all = true;
+            for (String w : words) {
+                if (!hay.contains(w)) {
+                    all = false;
+                    break;
+                }
+            }
+            if (!all) continue;
+            if (name.startsWith(q)) starts.add(c);
+            else contains.add(c);
+            if (starts.size() + contains.size() >= 500) break;
+        }
+        starts.addAll(contains);
+        return starts;
     }
 
     /** Your playlist, in the order you added channels (ones no longer working are left out). */
