@@ -1,4 +1,4 @@
-# Ghar TV — free live TV for Android TV, only channels that actually work
+# Ghar TV 2.0 — free live TV for Android TV and phones, only channels that actually work
 
 Plays the public [iptv-org](https://github.com/iptv-org/iptv) playlist
 (`https://iptv-org.github.io/iptv/index.m3u`), but **tests every channel first**:
@@ -70,6 +70,12 @@ any channel → **Add to playlist…**. Your playlists appear with the categorie
 When a channel carries subtitles, English is switched on automatically. Choose another
 language or turn them off with **CC** (phone) or **Menu → Subtitles** (TV); your choice is
 remembered. Most free channels have no subtitles; the app says so instead of failing.
+
+## While a channel loads
+
+If a channel takes more than about a second to start, a short family-friendly joke appears
+(from icanhazdadjoke.com, downloaded in the background every few days and saved on the
+device, so it also works offline). It disappears the moment the picture starts.
 
 ## Phone (same APK)
 

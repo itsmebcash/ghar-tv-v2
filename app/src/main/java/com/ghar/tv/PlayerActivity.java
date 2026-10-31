@@ -119,6 +119,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private TextView levelLabel;
     private ProgressBar levelBar;
     private final Runnable hideLevel = () -> levelBox.setVisibility(View.GONE);
+    private View jokeBox;
+    private TextView jokeText;
+    /** Only for slow starts: fast channels never flash a joke. */
+    private final Runnable showJoke = () -> {
+        jokeText.setText(Jokes.next(this));
+        jokeBox.setAlpha(0f);
+        jokeBox.setVisibility(View.VISIBLE);
+        jokeBox.animate().alpha(1f).setDuration(250).start();
+    };
     /** Warms up the next channel's connection (one small request, never a second video). */
     private final java.util.concurrent.ExecutorService warmer = java.util.concurrent.Executors.newSingleThreadExecutor();
 
@@ -234,6 +243,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         player.addListener(new PlayerEvents());
         applySubtitlePreference();
 
+        // Top up the joke file later, away from the channel start.
+        handler.postDelayed(() -> Jokes.refreshIfNeeded(this), 15_000);
+
         repo.addListener(this);
         browseCategory = category;
         markBrowseCategory();
@@ -274,6 +286,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         levelBox = findViewById(R.id.level_box);
         levelLabel = findViewById(R.id.level_label);
         levelBar = findViewById(R.id.level_bar);
+        jokeBox = findViewById(R.id.joke_box);
+        jokeText = findViewById(R.id.joke_text);
     }
 
     private void wireControls() {
@@ -406,6 +420,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 handler.removeCallbacks(startTimeout);
                 spinner.setVisibility(View.GONE);
                 statusText.setVisibility(View.GONE);
+                hideJoke();
                 repo.setPlaybackActive(true);
             } else if (state == Player.STATE_BUFFERING) {
                 spinner.setVisibility(View.VISIBLE);
@@ -530,6 +545,11 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         ViewGroup.LayoutParams bp = box.getLayoutParams();
         bp.width = r.getDimensionPixelSize(R.dimen.panel_width);
         box.setLayoutParams(bp);
+        jokeText.setMaxWidth(r.getDimensionPixelSize(R.dimen.joke_width));
+        jokeText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, r.getDimension(R.dimen.joke_text));
+        ViewGroup.MarginLayoutParams jp = (ViewGroup.MarginLayoutParams) jokeBox.getLayoutParams();
+        jp.topMargin = r.getDimensionPixelSize(R.dimen.joke_offset);
+        jokeBox.setLayoutParams(jp);
         applyPageLayout();
     }
 
@@ -818,6 +838,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         showStatusRes(R.string.status_connecting);
         handler.removeCallbacks(startTimeout);
         handler.postDelayed(startTimeout, START_TIMEOUT_MS);
+        hideJoke();
+        handler.postDelayed(showJoke, 900);
         preloadNeighbours();
         if (Repo.RECENT.equals(browseCategory)) refreshBrowse(false); // new top entry
         else {
@@ -1114,6 +1136,12 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     }
 
     // =============================================================== overlays
+
+    private void hideJoke() {
+        handler.removeCallbacks(showJoke);
+        jokeBox.animate().cancel();
+        jokeBox.setVisibility(View.GONE);
+    }
 
     private void showStatusRes(int resId) {
         showStatus(getString(resId));

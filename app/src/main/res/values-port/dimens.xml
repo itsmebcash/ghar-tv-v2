@@ -6,4 +6,7 @@
     <dimen name="info_logo_h">40dp</dimen>
     <dimen name="panel_width">340dp</dimen>
     <dimen name="panel_categories_width">120dp</dimen>
+    <dimen name="joke_offset">70dp</dimen>
+    <dimen name="joke_width">300dp</dimen>
+    <dimen name="joke_text">12sp</dimen>
 </resources>

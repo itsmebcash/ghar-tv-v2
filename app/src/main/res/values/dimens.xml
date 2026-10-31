@@ -5,4 +5,7 @@
     <dimen name="info_logo_h">50dp</dimen>
     <dimen name="panel_width">580dp</dimen>
     <dimen name="panel_categories_width">170dp</dimen>
+    <dimen name="joke_offset">150dp</dimen>
+    <dimen name="joke_width">520dp</dimen>
+    <dimen name="joke_text">16sp</dimen>
 </resources>

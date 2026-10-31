@@ -28,6 +28,12 @@ final class Net {
      */
     static Result get(String url, String userAgent, String referrer, long timeoutMs, int maxBytes)
             throws IOException {
+        return get(url, userAgent, referrer, timeoutMs, maxBytes, null);
+    }
+
+    /** Same, with extra request headers (e.g. Accept). */
+    static Result get(String url, String userAgent, String referrer, long timeoutMs, int maxBytes,
+                      java.util.Map<String, String> headers) throws IOException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         String current = url;
         for (int hop = 0; hop < 6; hop++) {
@@ -40,6 +46,11 @@ final class Net {
                 c.setReadTimeout(remaining);
                 c.setRequestProperty("User-Agent", userAgent != null ? userAgent : DEFAULT_UA);
                 if (referrer != null) c.setRequestProperty("Referer", referrer);
+                if (headers != null) {
+                    for (java.util.Map.Entry<String, String> h : headers.entrySet()) {
+                        c.setRequestProperty(h.getKey(), h.getValue());
+                    }
+                }
                 int code = c.getResponseCode();
                 if (code >= 300 && code < 400) {
                     String loc = c.getHeaderField("Location");
