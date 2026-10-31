@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The channel that is playing now -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_activated="true">
+        <shape><corners android:radius="8dp" /><solid android:color="#26FFC27A" /></shape>
+    </item>
+    <item android:drawable="@android:color/transparent" />
+</selector>

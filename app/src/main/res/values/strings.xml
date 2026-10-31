@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ghar TV</string>
+    <string name="rescan">Rescan</string>
+    <string name="loading_list">Downloading channel list…</string>
+    <string name="list_error">Couldn\'t load the channel list</string>
+    <string name="list_error_detail">Check the internet connection, then open Ghar TV again.</string>
+    <string name="scanning">Checking channels  ·  %1$s of %2$s  ·  %3$s working</string>
+    <string name="done">%1$s working channels  ·  checked %2$s</string>
+    <string name="just_now">just now</string>
+    <string name="hours_ago">%1$dh ago</string>
+    <string name="days_ago">%1$d days ago</string>
+    <string name="rescan_title">Check all channels again?</string>
+    <string name="rescan_message">Ghar TV will test all %1$s channels again to find which work today. This takes about 10–20 minutes; working channels reappear as they pass. Your favourites are kept.</string>
+    <string name="empty_scanning">Finding working channels… they will appear here as they pass.</string>
+    <string name="empty_favourites">No favourites yet. Hold OK on a channel to add it.</string>
+    <string name="empty_category">No working channels in this category right now.</string>
+    <string name="hint">Hold OK on a channel to add it to Favourites</string>
+    <string name="player_hint_tv">▲ ▼  channel list   ·   CH + / −  switch   ·   ▶  screen mode   ·   Back  exit</string>
+    <string name="player_hint_phone">Swipe up / down to change channel   ·   Tap for controls</string>
+    <string name="panel_hint">Choose a channel  ·  Back to close</string>
+    <string name="channels">Channels</string>
+    <string name="mode_fit">Fit</string>
+    <string name="mode_fill">Fill</string>
+    <string name="mode_stretch">Stretch</string>
+    <string name="screen_mode">Screen: %1$s</string>
+    <string name="hint_phone">Long-press a channel to add it to Favourites</string>
+    <string name="skip_slow">too slow to start</string>
+    <string name="skip_error">not working</string>
+    <string name="skipping">Skipped %1$s (%2$s)</string>
+</resources>

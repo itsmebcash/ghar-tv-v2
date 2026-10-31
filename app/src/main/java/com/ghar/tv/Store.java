@@ -1,0 +1,124 @@
+package com.ghar.tv;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Remembers scan results permanently, so the app opens instantly and never rescans
+ * on its own: which channels work (and whether each is HLS), which were checked, and when.
+ * Also keeps the favourites list (separately, so a rescan never touches it).
+ */
+final class Store {
+
+    private static final String FILE = "scan.json";
+    private static final String PREFS = "ghar_tv";
+    private static final String KEY_FAVS = "favourites";
+
+    static final class ScanCache {
+        long time;
+        boolean complete;
+        final Map<String, Boolean> working = new HashMap<>(); // url -> isHls
+        final Set<String> checked = new HashSet<>();
+
+        /** Saved results are kept until you press Rescan; they never expire on their own. */
+        boolean hasResults() {
+            return time > 0 && !checked.isEmpty();
+        }
+    }
+
+    private Store() {
+    }
+
+    // ----------------------------------------------------------------- scan
+
+    static ScanCache loadScan(Context c) {
+        ScanCache sc = new ScanCache();
+        File f = new File(c.getFilesDir(), FILE);
+        if (!f.exists()) return sc;
+        try {
+            JSONObject o = new JSONObject(Playlist.read(f));
+            sc.time = o.getLong("time");
+            sc.complete = o.getBoolean("complete");
+            JSONArray w = o.getJSONArray("working");
+            for (int i = 0; i < w.length(); i++) {
+                JSONObject e = w.getJSONObject(i);
+                sc.working.put(e.getString("u"), e.getBoolean("h"));
+            }
+            JSONArray ch = o.getJSONArray("checked");
+            for (int i = 0; i < ch.length(); i++) sc.checked.add(ch.getString(i));
+        } catch (Exception e) {
+            return new ScanCache(); // unreadable: start over
+        }
+        return sc;
+    }
+
+    /** Background thread only. */
+    static synchronized void saveScan(Context c, ScanCache sc) {
+        try {
+            JSONArray w = new JSONArray();
+            for (Map.Entry<String, Boolean> e : sc.working.entrySet()) {
+                w.put(new JSONObject().put("u", e.getKey()).put("h", e.getValue()));
+            }
+            JSONArray ch = new JSONArray();
+            for (String u : sc.checked) ch.put(u);
+            JSONObject o = new JSONObject().put("time", sc.time).put("complete", sc.complete)
+                    .put("working", w).put("checked", ch);
+            File tmp = new File(c.getFilesDir(), FILE + ".tmp");
+            try (OutputStream out = new FileOutputStream(tmp)) {
+                out.write(o.toString().getBytes(Charset.forName("UTF-8")));
+            }
+            //noinspection ResultOfMethodCallIgnored
+            tmp.renameTo(new File(c.getFilesDir(), FILE));
+        } catch (Exception ignored) {
+            // best effort
+        }
+    }
+
+    // ---------------------------------------------------------- screen mode
+
+    /** 0 = Fit (whole picture), 1 = Fill (zoom, no black bars), 2 = Stretch (full screen). */
+    static int screenMode(Context c) {
+        return prefs(c).getInt("screen_mode", 0);
+    }
+
+    static void setScreenMode(Context c, int mode) {
+        prefs(c).edit().putInt("screen_mode", mode).apply();
+    }
+
+    // ----------------------------------------------------------- favourites
+
+    private static SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    static Set<String> favourites(Context c) {
+        return new HashSet<>(prefs(c).getStringSet(KEY_FAVS, new HashSet<String>()));
+    }
+
+    /** @return true if it is now a favourite */
+    static boolean toggleFavourite(Context c, String url) {
+        Set<String> favs = favourites(c);
+        boolean added;
+        if (favs.contains(url)) {
+            favs.remove(url);
+            added = false;
+        } else {
+            favs.add(url);
+            added = true;
+        }
+        prefs(c).edit().putStringSet(KEY_FAVS, favs).apply();
+        return added;
+    }
+}
