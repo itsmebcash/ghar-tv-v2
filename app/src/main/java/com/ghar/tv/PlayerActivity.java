@@ -50,9 +50,10 @@ import java.util.Map;
  * The heart of the app: watch and browse in one screen.
  *
  * TV / phone sideways: full-screen video. Bottom bar = channel name, programme, clock, controls.
- *   Star (favourite) at the top. Up/Down/Left opens the channel panel: categories + channels,
+ *   Star (favourite) at the top. Left/Right opens the channel panel: categories + channels,
  *   so you can browse without stopping what's playing.
- *   Remote: CH+/CH- switch, OK info, hold OK favourite, Right/Menu screen mode, Back close/exit.
+ *   Remote: Up/Down and CH+/CH- switch channel, OK info, hold OK favourite,
+ *   Menu options (subtitles, screen mode, playlists), Back close/exit.
  *
  * Phone upright: YouTube-style watch page - video on top, then channel info with clock and
  *   star, category chips (Last Watched, Favourites, All, Nepal...) and the channel list.
@@ -325,6 +326,23 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         panelList.setAdapter(panelAdapter);
         panelList.setOnItemClickListener((p, v, position, id) -> onChannelTap(position));
         panelList.setOnItemLongClickListener((p, v, position, id) -> onChannelHold(position));
+        // Browsing a category: Up/Down stay inside its channel list (no jumping to other
+        // categories or buttons at the ends); Left goes to the category you are in.
+        panelList.setOnKeyListener((v, keyCode, e) -> {
+            if (e.getAction() != KeyEvent.ACTION_DOWN) return false;
+            int pos = panelList.getSelectedItemPosition();
+            int last = panelList.getCount() - 1;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && pos >= last) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP && pos <= 0) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                View row = activeCategoryRow();
+                if (row != null) {
+                    row.requestFocus();
+                    return true;
+                }
+            }
+            return false;
+        });
 
         belowAdapter = new ChannelListAdapter();
         belowList.setAdapter(belowAdapter);
@@ -652,6 +670,22 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         if (scrollToCurrent) scrollListsToCurrent();
     }
 
+    private View activeCategoryRow() {
+        int i = categoryNames.indexOf(browseCategory);
+        return i >= 0 && i < panelCategoryRows.size() ? panelCategoryRows.get(i) : null;
+    }
+
+    /** Number of channels in each category, on the chips and the panel rows. */
+    private void updateCategoryCounts() {
+        java.text.NumberFormat nf = java.text.NumberFormat.getIntegerInstance();
+        for (int i = 0; i < categoryNames.size() && i < chipViews.size(); i++) {
+            String key = categoryNames.get(i);
+            String text = Repo.NEW_PLAYLIST.equals(key) ? "" : nf.format(repo.count(key, favs));
+            ((TextView) chipViews.get(i).findViewById(R.id.cat_count)).setText(text);
+            ((TextView) panelCategoryRows.get(i).findViewById(R.id.cat_count)).setText(text);
+        }
+    }
+
     private void markBrowseCategory() {
         for (int i = 0; i < categoryNames.size(); i++) {
             boolean on = categoryNames.get(i).equals(browseCategory);
@@ -664,6 +698,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         favs = Store.favourites(this);
         browseList.clear();
         browseList.addAll(repo.channels(browseCategory, favs));
+        updateCategoryCounts();
         panelAdapter.notifyDataSetChanged();
         belowAdapter.notifyDataSetChanged();
         if (toTop) {
@@ -770,9 +805,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN && !isPanelOpen()) {
             switch (event.getKeyCode()) {
+                // TV remote: Up / Down change channel, Left / Right open the channel menu.
                 case KeyEvent.KEYCODE_DPAD_UP:
+                    if (event.getRepeatCount() == 0) next();
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (event.getRepeatCount() == 0) previous();
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
                     if (event.getRepeatCount() == 0) openPanel();
                     return true;
                 case KeyEvent.KEYCODE_CHANNEL_UP:
@@ -791,9 +832,6 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     return true;
                 case KeyEvent.KEYCODE_INFO:
                     showInfo();
-                    return true;
-                case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    cycleScreenMode();
                     return true;
                 case KeyEvent.KEYCODE_MENU:
                     showOptions();

@@ -61,9 +61,9 @@
     <string name="empty_favourites">No favourites yet. Hold OK on a channel to add it.</string>
     <string name="empty_category">No working channels in this category right now.</string>
     <string name="hint">Hold OK on a channel for Favourites and playlists</string>
-    <string name="player_hint_tv">▲ ▼  channels   ·   CH + / −  switch   ·   ▶  screen mode   ·   Hold OK  favourite   ·   Back  exit</string>
+    <string name="player_hint_tv">▲ ▼  channel up / down   ·   ◀ ▶  channel menu   ·   Menu  options   ·   Hold OK  favourite   ·   Back  exit</string>
     <string name="player_hint_phone">Middle: swipe to change channel   ·   Left: brightness   ·   Right: volume   ·   Tap: controls</string>
-    <string name="panel_hint">Pick a category, then a channel  ·  Hold OK = Favourite  ·  Back to close</string>
+    <string name="panel_hint">◀ categories   ·   ▲ ▼ channels   ·   OK watch   ·   Hold OK options   ·   Back close</string>
     <string name="channels">Channels</string>
     <string name="mode_fit">Fit</string>
     <string name="mode_fill">Fill</string>

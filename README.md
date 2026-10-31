@@ -49,13 +49,15 @@ channel-up/down order.
 | Where | Button | Action |
 |---|---|---|
 | Browser grid | OK / Hold OK | Watch / options (favourite, add to playlist) |
-| Watching | Up / Down / Left | Open the channel panel (Left/Right moves between categories and channels) |
+| Watching | Up / Down | Next / previous channel |
+| Watching | Left / Right | Open the channel panel (categories with channel counts + channels) |
+| Channel panel | Up / Down | Move through the channels of the chosen category (stays in that category) |
+| Channel panel | Left | Back to the category list (lands on the category you're in) |
 | Channel panel | OK / Hold OK | Switch to that channel / options (favourite, playlists) |
 | A playlist category | Hold OK | Rename or delete it |
 | Watching | CH+ / CH− | Switch channel directly |
 | Watching | OK | Show channel info |
 | Watching | Hold OK | Add / remove the current channel from Favourites |
-| Watching | Right | Screen mode: Fit → Fill → Stretch |
 | Watching | Menu (≡) | Options: subtitles, screen mode, favourite, add to playlist |
 | Watching | Back | Close the panel, or save and exit the app |
 
