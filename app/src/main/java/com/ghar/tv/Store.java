@@ -10,8 +10,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -104,6 +106,112 @@ final class Store {
 
     static void setOrientation(Context c, int value) {
         prefs(c).edit().putInt("orientation", value).apply();
+    }
+
+    // ------------------------------------------------------------ subtitles
+
+    static boolean subtitlesOn(Context c) {
+        return prefs(c).getBoolean("subs_on", true);
+    }
+
+    /** Preferred subtitle language (ISO code). English by default. */
+    static String subtitleLanguage(Context c) {
+        return prefs(c).getString("subs_lang", "en");
+    }
+
+    static void setSubtitles(Context c, boolean on, String language) {
+        SharedPreferences.Editor e = prefs(c).edit().putBoolean("subs_on", on);
+        if (language != null) e.putString("subs_lang", language);
+        e.apply();
+    }
+
+    // ------------------------------------------------------------ playlists
+
+    /** A playlist you made: a name and the channels in it (by stream address). */
+    static final class UserPlaylist {
+        String id;
+        String name;
+        final List<String> urls = new ArrayList<>();
+    }
+
+    static List<UserPlaylist> playlists(Context c) {
+        List<UserPlaylist> out = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(prefs(c).getString("playlists", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                UserPlaylist p = new UserPlaylist();
+                p.id = o.getString("id");
+                p.name = o.getString("name");
+                JSONArray urls = o.getJSONArray("urls");
+                for (int j = 0; j < urls.length(); j++) p.urls.add(urls.getString(j));
+                out.add(p);
+            }
+        } catch (Exception ignored) {
+            // unreadable: no playlists
+        }
+        return out;
+    }
+
+    static UserPlaylist playlist(Context c, String id) {
+        for (UserPlaylist p : playlists(c)) if (p.id.equals(id)) return p;
+        return null;
+    }
+
+    private static void savePlaylists(Context c, List<UserPlaylist> list) {
+        try {
+            JSONArray arr = new JSONArray();
+            for (UserPlaylist p : list) {
+                JSONArray urls = new JSONArray();
+                for (String u : p.urls) urls.put(u);
+                arr.put(new JSONObject().put("id", p.id).put("name", p.name).put("urls", urls));
+            }
+            prefs(c).edit().putString("playlists", arr.toString()).apply();
+        } catch (Exception ignored) {
+            // best effort
+        }
+    }
+
+    static UserPlaylist createPlaylist(Context c, String name) {
+        List<UserPlaylist> list = playlists(c);
+        UserPlaylist p = new UserPlaylist();
+        p.id = Long.toString(System.currentTimeMillis(), 36);
+        p.name = name;
+        list.add(p);
+        savePlaylists(c, list);
+        return p;
+    }
+
+    static void renamePlaylist(Context c, String id, String name) {
+        List<UserPlaylist> list = playlists(c);
+        for (UserPlaylist p : list) if (p.id.equals(id)) p.name = name;
+        savePlaylists(c, list);
+    }
+
+    static void deletePlaylist(Context c, String id) {
+        List<UserPlaylist> list = playlists(c);
+        for (int i = list.size() - 1; i >= 0; i--) if (list.get(i).id.equals(id)) list.remove(i);
+        savePlaylists(c, list);
+    }
+
+    /** @return true if added, false if it was already there */
+    static boolean addToPlaylist(Context c, String id, String url) {
+        List<UserPlaylist> list = playlists(c);
+        boolean added = false;
+        for (UserPlaylist p : list) {
+            if (p.id.equals(id) && !p.urls.contains(url)) {
+                p.urls.add(url);
+                added = true;
+            }
+        }
+        savePlaylists(c, list);
+        return added;
+    }
+
+    static void removeFromPlaylist(Context c, String id, String url) {
+        List<UserPlaylist> list = playlists(c);
+        for (UserPlaylist p : list) if (p.id.equals(id)) p.urls.remove(url);
+        savePlaylists(c, list);
     }
 
     // ----------------------------------------------------------- favourites

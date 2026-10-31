@@ -48,22 +48,39 @@ channel-up/down order.
 
 | Where | Button | Action |
 |---|---|---|
-| Browser grid | OK / Hold OK | Watch / add or remove Favourite |
+| Browser grid | OK / Hold OK | Watch / options (favourite, add to playlist) |
 | Watching | Up / Down / Left | Open the channel panel (Left/Right moves between categories and channels) |
-| Channel panel | OK / Hold OK | Switch to that channel / add or remove Favourite |
+| Channel panel | OK / Hold OK | Switch to that channel / options (favourite, playlists) |
+| A playlist category | Hold OK | Rename or delete it |
 | Watching | CH+ / CH− | Switch channel directly |
 | Watching | OK | Show channel info |
 | Watching | Hold OK | Add / remove the current channel from Favourites |
-| Watching | Right / Menu | Screen mode: Fit → Fill → Stretch |
+| Watching | Right | Screen mode: Fit → Fill → Stretch |
+| Watching | Menu (≡) | Options: subtitles, screen mode, favourite, add to playlist |
 | Watching | Back | Close the panel, or save and exit the app |
+
+## My playlists
+
+Make your own lists: choose **+ New playlist** in the categories, or Hold OK / long-press
+any channel → **Add to playlist…**. Your playlists appear with the categories
+(after Favourites); hold OK / long-press one to rename or delete it. Saved on the device.
+
+## Subtitles
+
+When a channel carries subtitles, English is switched on automatically. Choose another
+language or turn them off with **CC** (phone) or **Menu → Subtitles** (TV); your choice is
+remembered. Most free channels have no subtitles; the app says so instead of failing.
 
 ## Phone (same APK)
 
 | Where | Gesture | Action |
 |---|---|---|
-| Video | Swipe up / down | Next / previous channel |
-| Video | Tap | Show controls: ★, **Channels**, **Fit / Fill / Stretch**, rotation **Auto / Portrait / Landscape** |
-| Watch page / panel | Tap / long-press a channel | Switch / add or remove Favourite |
+| Video, middle | Swipe up / down | Next / previous channel |
+| Video, left side | Drag up / down | Brightness (this app only), with an on-screen level |
+| Video, right side | Drag up / down | Volume, with an on-screen level |
+| Video | Tap | Show controls: ★, **Channels**, **CC**, **Fit / Fill / Stretch**, rotation |
+| A channel in any list | Tap / double-tap / long-press | Watch / favourite / options & playlists |
+| A playlist chip | Long-press | Rename or delete it |
 | ★ next to the channel name | Tap | Add / remove Favourite |
 | Anywhere | Back | Close the panel, or save and exit the app |
 

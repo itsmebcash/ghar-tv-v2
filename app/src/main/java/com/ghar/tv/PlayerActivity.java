@@ -21,11 +21,15 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.Tracks;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -95,7 +99,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private String programme;
 
     // What's being browsed (panel / watch page); becomes the queue when you pick a channel
-    private final List<String> categoryNames = Repo.categoryNames();
+    private final List<String> categoryNames = new ArrayList<>();
+    private Taps taps;
     private String browseCategory;
     private final List<Channel> browseList = new ArrayList<>();
     private java.util.Set<String> favs = new java.util.HashSet<>();
@@ -106,6 +111,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private int orientation;
     private boolean touchOnControl;
     private boolean gestureInVideo;
+    /** Where a swipe started on the video: left = brightness, middle = channels, right = volume. */
+    private int zone;
+    private static final int ZONE_LEFT = 0, ZONE_MIDDLE = 1, ZONE_RIGHT = 2;
+    private float volumeCarry;
+    private View levelBox;
+    private TextView levelLabel;
+    private ProgressBar levelBar;
+    private final Runnable hideLevel = () -> levelBox.setVisibility(View.GONE);
+    /** Warms up the next channel's connection (one small request, never a second video). */
+    private final java.util.concurrent.ExecutorService warmer = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     private ExoPlayer player;
     private PlayerView playerView;
@@ -194,7 +209,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             category = Session.category(this);
             restoring = true;
         }
-        if (!categoryNames.contains(category)) category = Repo.ALL;
+        categoryNames.addAll(Repo.categoryNames(this));
+        if (!categoryNames.contains(category) || Repo.NEW_PLAYLIST.equals(category)) category = Repo.ALL;
+        taps = new Taps(isTv);
         pendingQueue = null;
         pendingCategory = null;
 
@@ -215,6 +232,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         player = buildPlayer();
         playerView.setPlayer(player);
         player.addListener(new PlayerEvents());
+        applySubtitlePreference();
 
         repo.addListener(this);
         browseCategory = category;
@@ -253,6 +271,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         belowFav = findViewById(R.id.below_fav);
         belowChips = findViewById(R.id.below_chips);
         belowList = findViewById(R.id.below_list);
+        levelBox = findViewById(R.id.level_box);
+        levelLabel = findViewById(R.id.level_label);
+        levelBar = findViewById(R.id.level_bar);
     }
 
     private void wireControls() {
@@ -262,51 +283,93 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         channelsButton.setOnClickListener(v -> openPanel());
         modeButton.setOnClickListener(v -> cycleScreenMode());
         rotateButton.setOnClickListener(v -> cycleOrientation());
+        findViewById(R.id.cc_button).setOnClickListener(v -> chooseSubtitles());
         favButton.setOnClickListener(v -> toggleFavourite(current()));
         belowFav.setOnClickListener(v -> toggleFavourite(current()));
         findViewById(R.id.panel_scrim).setOnClickListener(v -> closePanel());
         findViewById(R.id.browse_button).setOnClickListener(v -> openBrowser());
 
+        // Tap = watch; double-tap (phone) = favourite; hold OK / long-press = options & playlists.
         panelAdapter = new ChannelListAdapter();
         panelList.setAdapter(panelAdapter);
-        panelList.setOnItemClickListener((p, v, position, id) -> pickFromBrowse(position));
-        panelList.setOnItemLongClickListener((p, v, position, id) -> {
-            toggleFavourite(browseList.get(position));
-            return true;
-        });
+        panelList.setOnItemClickListener((p, v, position, id) -> onChannelTap(position));
+        panelList.setOnItemLongClickListener((p, v, position, id) -> onChannelHold(position));
 
         belowAdapter = new ChannelListAdapter();
         belowList.setAdapter(belowAdapter);
-        belowList.setOnItemClickListener((p, v, position, id) -> pickFromBrowse(position));
-        belowList.setOnItemLongClickListener((p, v, position, id) -> {
-            toggleFavourite(browseList.get(position));
-            return true;
+        belowList.setOnItemClickListener((p, v, position, id) -> onChannelTap(position));
+        belowList.setOnItemLongClickListener((p, v, position, id) -> onChannelHold(position));
+    }
+
+    private void onChannelTap(int position) {
+        taps.tap(position, () -> pickFromBrowse(position), () -> {
+            if (position < browseList.size()) toggleFavourite(browseList.get(position));
         });
+    }
+
+    private boolean onChannelHold(int position) {
+        taps.cancel();
+        if (position < browseList.size()) {
+            Menus.channel(this, browseList.get(position), browseCategory, this::channelsChanged);
+        }
+        return true;
+    }
+
+    /** Favourites or playlists changed somewhere: refresh names, lists and the star. */
+    private void channelsChanged() {
+        List<String> names = Repo.categoryNames(this);
+        if (!names.equals(categoryNames)) {
+            categoryNames.clear();
+            categoryNames.addAll(names);
+            if (!categoryNames.contains(browseCategory)) browseCategory = Repo.ALL;
+            if (!categoryNames.contains(category)) category = Repo.ALL;
+            buildCategoryViews();
+            markBrowseCategory();
+        }
+        refreshBrowse(false);
+        updateStar();
     }
 
     /** Category chips (watch page) and category rows (panel). */
     private void buildCategoryViews() {
+        belowChips.removeAllViews();
+        panelCategories.removeAllViews();
+        chipViews.clear();
+        panelCategoryRows.clear();
         LayoutInflater inflater = LayoutInflater.from(this);
         for (String n : categoryNames) {
+            boolean isNew = Repo.NEW_PLAYLIST.equals(n);
+            String label = Repo.label(this, n);
+            View.OnClickListener click = v -> {
+                if (isNew) Menus.newPlaylist(this, null, this::channelsChanged);
+                else setBrowseCategory(n, true);
+            };
+            View.OnLongClickListener hold = v -> {
+                Menus.playlist(this, n, this::channelsChanged);
+                return true;
+            };
+
             View chip = inflater.inflate(R.layout.item_chip, belowChips, false);
-            ((TextView) chip.findViewById(R.id.cat_name)).setText(n);
-            chip.setOnClickListener(v -> setBrowseCategory(n, true));
+            ((TextView) chip.findViewById(R.id.cat_name)).setText(label);
+            chip.setOnClickListener(click);
+            if (Repo.isPlaylist(n)) chip.setOnLongClickListener(hold);
             belowChips.addView(chip);
             chipViews.add(chip);
 
             View row = inflater.inflate(R.layout.item_panel_category, panelCategories, false);
-            ((TextView) row.findViewById(R.id.cat_name)).setText(n);
+            ((TextView) row.findViewById(R.id.cat_name)).setText(label);
             row.setOnFocusChangeListener((v, has) -> {
-                if (has) {
+                if (has && !isNew) {
                     pendingPanelCategory = n;
                     handler.removeCallbacks(selectPanelCategory);
                     handler.postDelayed(selectPanelCategory, 300);
                 }
             });
             row.setOnClickListener(v -> {
-                setBrowseCategory(n, true);
-                panelList.requestFocus();
+                click.onClick(v);
+                if (!isNew) panelList.requestFocus();
             });
+            if (Repo.isPlaylist(n)) row.setOnLongClickListener(hold);
             panelCategories.addView(row);
             panelCategoryRows.add(row);
         }
@@ -413,6 +476,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (taps != null) taps.cancel();
+        warmer.shutdownNow();
         if (repo != null) repo.removeListener(this);
         releasePlayer();
         super.onDestroy();
@@ -597,9 +662,20 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 return true;
             }
 
+            /** Edges: drag up/down for brightness (left) or volume (right). */
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                if (e1 == null || isPanelOpen() || zone == ZONE_MIDDLE) return false;
+                if (Math.abs(e2.getY() - e1.getY()) < Math.abs(e2.getX() - e1.getX())) return false;
+                float delta = distanceY / Math.max(1, videoArea.getHeight()) * 1.3f; // up = more
+                if (zone == ZONE_LEFT) changeBrightness(delta);
+                else changeVolume(delta);
+                return true;
+            }
+
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float vx, float vy) {
-                if (e1 == null || isPanelOpen()) return false;
+                if (e1 == null || isPanelOpen() || zone != ZONE_MIDDLE) return false;
                 float dy = e2.getY() - e1.getY();
                 float dx = e2.getX() - e1.getX();
                 if (Math.abs(dy) < minSwipe || Math.abs(dy) < Math.abs(dx)) return false;
@@ -620,7 +696,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (isPanelOpen()) return super.dispatchTouchEvent(ev);
-        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) gestureInVideo = isInside(videoArea, ev);
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            gestureInVideo = isInside(videoArea, ev);
+            if (gestureInVideo) {
+                int[] loc = new int[2];
+                videoArea.getLocationOnScreen(loc);
+                float x = (ev.getRawX() - loc[0]) / Math.max(1, videoArea.getWidth());
+                zone = x < 0.33f ? ZONE_LEFT : x > 0.67f ? ZONE_RIGHT : ZONE_MIDDLE;
+                volumeCarry = 0;
+            }
+        }
         if (!gestureInVideo) return super.dispatchTouchEvent(ev);
         boolean handled = super.dispatchTouchEvent(ev); // buttons get their taps
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) touchOnControl = handled;
@@ -663,8 +748,13 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     showInfo();
                     return true;
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                case KeyEvent.KEYCODE_MENU:
                     cycleScreenMode();
+                    return true;
+                case KeyEvent.KEYCODE_MENU:
+                    showOptions();
+                    return true;
+                case KeyEvent.KEYCODE_CAPTIONS:
+                    chooseSubtitles();
                     return true;
                 default:
                     break;
@@ -720,6 +810,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         MediaSource source = new DefaultMediaSourceFactory(http).createMediaSource(item.build());
 
         player.stop();
+        clearSubtitleOverride();
         player.setMediaSource(source);
         player.prepare();
         player.setPlayWhenReady(true);
@@ -727,6 +818,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         showStatusRes(R.string.status_connecting);
         handler.removeCallbacks(startTimeout);
         handler.postDelayed(startTimeout, START_TIMEOUT_MS);
+        preloadNeighbours();
         if (Repo.RECENT.equals(browseCategory)) refreshBrowse(false); // new top entry
         else {
             panelAdapter.notifyDataSetChanged();
@@ -863,6 +955,162 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         String label = getString(ORIENTATION_LABELS[orientation]);
         rotateButton.setText(label);
         if (announce) showMessage(getString(R.string.rotation, label));
+    }
+
+    // ============================================================ subtitles
+
+    /** English subtitles are chosen automatically when a channel has them (unless turned off). */
+    private void applySubtitlePreference() {
+        player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !Store.subtitlesOn(this))
+                .setPreferredTextLanguage(Store.subtitleLanguage(this))
+                .build());
+    }
+
+    private void clearSubtitleOverride() {
+        player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .build());
+        applySubtitlePreference();
+    }
+
+    /** CC button / Captions key: list this channel's subtitle tracks. */
+    private void chooseSubtitles() {
+        if (player == null) return;
+        List<String> labels = new ArrayList<>();
+        List<Tracks.Group> groups = new ArrayList<>();
+        List<Integer> trackIndexes = new ArrayList<>();
+        labels.add(getString(R.string.subtitles_off));
+        for (Tracks.Group g : player.getCurrentTracks().getGroups()) {
+            if (g.getType() != C.TRACK_TYPE_TEXT) continue;
+            for (int i = 0; i < g.length; i++) {
+                if (!g.isTrackSupported(i)) continue;
+                labels.add(trackLabel(g.getTrackFormat(i), labels.size()));
+                groups.add(g);
+                trackIndexes.add(i);
+            }
+        }
+        if (groups.isEmpty()) {
+            showMessage(getString(R.string.subtitles_none));
+            return;
+        }
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.subtitles_title)
+                .setItems(labels.toArray(new String[0]), (d, w) -> {
+                    if (w == 0) {
+                        Store.setSubtitles(this, false, null);
+                        applySubtitlePreference();
+                        showMessage(getString(R.string.subtitles_on, labels.get(0)));
+                        return;
+                    }
+                    Tracks.Group g = groups.get(w - 1);
+                    int i = trackIndexes.get(w - 1);
+                    Store.setSubtitles(this, true, g.getTrackFormat(i).language);
+                    player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setOverrideForType(new TrackSelectionOverride(g.getMediaTrackGroup(), i))
+                            .build());
+                    showMessage(getString(R.string.subtitles_on, labels.get(w)));
+                })
+                .show();
+    }
+
+    private static String trackLabel(Format f, int n) {
+        if (f.label != null && !f.label.isEmpty()) return f.label;
+        if (f.language != null && !f.language.isEmpty() && !"und".equals(f.language)) {
+            String name = new java.util.Locale(f.language).getDisplayLanguage();
+            return name.isEmpty() ? f.language : name;
+        }
+        return "Track " + n;
+    }
+
+    /** TV Menu key: subtitles, screen mode, favourite and playlists in one place. */
+    private void showOptions() {
+        Channel c = current();
+        if (c == null) return;
+        boolean fav = favs.contains(c.url);
+        String[] items = {
+                getString(R.string.option_subtitles),
+                getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
+                getString(fav ? R.string.menu_unfavourite : R.string.menu_favourite),
+                getString(R.string.menu_add_to_playlist),
+        };
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(c.name)
+                .setItems(items, (d, w) -> {
+                    if (w == 0) chooseSubtitles();
+                    else if (w == 1) cycleScreenMode();
+                    else if (w == 2) toggleFavourite(c);
+                    else Menus.addToPlaylist(this, c, this::channelsChanged);
+                })
+                .show();
+    }
+
+    // ===================================================== volume & brightness
+
+    private void changeBrightness(float delta) {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        float now = lp.screenBrightness;
+        if (now < 0) { // still following the system setting: start from it
+            int sys = android.provider.Settings.System.getInt(getContentResolver(),
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS, 128);
+            now = sys / 255f;
+        }
+        now = Math.max(0.02f, Math.min(1f, now + delta));
+        lp.screenBrightness = now; // this app's window only; the phone's own setting is untouched
+        getWindow().setAttributes(lp);
+        showLevel(R.string.brightness, now);
+    }
+
+    private void changeVolume(float delta) {
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am == null) return;
+        int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        int cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+        volumeCarry += delta * max;
+        int steps = (int) volumeCarry;
+        if (steps != 0) {
+            volumeCarry -= steps;
+            cur = Math.max(0, Math.min(max, cur + steps));
+            try {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, cur, 0);
+            } catch (SecurityException ignored) {
+                // e.g. Do Not Disturb: Android doesn't allow changing volume now
+            }
+        }
+        showLevel(R.string.volume, max == 0 ? 0 : cur / (float) max);
+    }
+
+    private void showLevel(int label, float fraction) {
+        levelLabel.setText(getString(label) + "  " + Math.round(fraction * 100) + "%");
+        levelBar.setProgress(Math.round(fraction * 100));
+        levelBox.setVisibility(View.VISIBLE);
+        handler.removeCallbacks(hideLevel);
+        handler.postDelayed(hideLevel, 900);
+    }
+
+    // ============================================================ preloading
+
+    /** Logos of the 5 channels before and after load in advance; the next stream is warmed up. */
+    private void preloadNeighbours() {
+        int size = queue.size();
+        if (size < 2) return;
+        for (int d = -5; d <= 5; d++) {
+            if (d == 0) continue;
+            Logos.prefetch(this, queue.get(((index + d) % size + size) % size).logo);
+        }
+        Channel next = queue.get(((index + direction) % size + size) % size);
+        try {
+            warmer.execute(() -> {
+                try {
+                    Net.get(next.url, next.userAgent, next.referrer, 4000, 16 * 1024);
+                } catch (Exception ignored) {
+                    // only a warm-up
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // screen is closing
+        }
     }
 
     // =============================================================== overlays

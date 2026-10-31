@@ -41,7 +41,8 @@ public class MainActivity extends Activity implements Repo.Listener {
     private Set<String> favourites = new HashSet<>();
 
     private String category = Repo.ALL;
-    private final List<String> categoryNames = Repo.categoryNames();
+    private final List<String> categoryNames = new ArrayList<>();
+    private Taps taps;
     private final List<View> categoryRows = new ArrayList<>();
     private boolean browseMode;
     private boolean positionedOnLast;
@@ -85,22 +86,21 @@ public class MainActivity extends Activity implements Repo.Listener {
         categoryList = findViewById(R.id.categories);
         favourites = Store.favourites(this);
         category = Session.category(this);
-        if (!categoryNames.contains(category)) category = Repo.ALL;
+        categoryNames.addAll(Repo.categoryNames(this));
+        if (!categoryNames.contains(category) || Repo.NEW_PLAYLIST.equals(category)) category = Repo.ALL;
+        taps = new Taps(Device.isTv(this));
         if (!Device.isTv(this)) ((TextView) findViewById(R.id.hint)).setText(R.string.hint_phone);
 
         findViewById(R.id.rescan).setOnClickListener(v -> confirmRescan());
 
         adapter = new ChannelAdapter();
         grid.setAdapter(adapter);
-        grid.setOnItemClickListener((p, v, position, id) -> play(position));
+        // Tap = watch; double-tap (phone) = favourite; hold OK / long-press = options.
+        grid.setOnItemClickListener((p, v, position, id) ->
+                taps.tap(position, () -> play(position), () -> quickFavourite(position)));
         grid.setOnItemLongClickListener((p, v, position, id) -> {
-            Channel c = shown.get(position);
-            boolean added = Store.toggleFavourite(this, c.url);
-            favourites = Store.favourites(this);
-            toast(added ? "★ Added " + c.name + " to Favourites" : "Removed " + c.name + " from Favourites");
-            updateCategoryCounts();
-            if (Repo.FAVOURITES.equals(category)) applyFilter(false);
-            else adapter.notifyDataSetChanged();
+            taps.cancel();
+            Menus.channel(this, shown.get(position), category, this::channelsChanged);
             return true;
         });
         grid.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -136,6 +136,7 @@ public class MainActivity extends Activity implements Repo.Listener {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (taps != null) taps.cancel();
         if (repo != null) repo.removeListener(this);
         super.onDestroy();
     }
@@ -150,6 +151,28 @@ public class MainActivity extends Activity implements Repo.Listener {
             repo.exitNow();
             finish();
         }
+    }
+
+    private void quickFavourite(int position) {
+        if (position >= shown.size()) return;
+        Channel c = shown.get(position);
+        boolean added = Store.toggleFavourite(this, c.url);
+        toast(getString(added ? R.string.fav_added : R.string.fav_removed, c.name));
+        channelsChanged();
+    }
+
+    /** Favourites or playlists changed: refresh counts, the list, and the category names. */
+    private void channelsChanged() {
+        favourites = Store.favourites(this);
+        List<String> names = Repo.categoryNames(this);
+        if (!names.equals(categoryNames)) {
+            categoryNames.clear();
+            categoryNames.addAll(names);
+            if (!categoryNames.contains(category)) category = Repo.ALL;
+            buildCategories();
+        }
+        updateCategoryCounts();
+        applyFilter(false);
     }
 
     private void toast(String s) {
@@ -212,21 +235,34 @@ public class MainActivity extends Activity implements Repo.Listener {
     // -------------------------------------------------------- categories
 
     private void buildCategories() {
+        categoryList.removeAllViews();
+        categoryRows.clear();
         LayoutInflater inflater = LayoutInflater.from(this);
         for (String name : categoryNames) {
             View row = inflater.inflate(R.layout.item_category, categoryList, false);
-            ((TextView) row.findViewById(R.id.cat_name)).setText(name);
+            ((TextView) row.findViewById(R.id.cat_name)).setText(Repo.label(this, name));
+            boolean isNew = Repo.NEW_PLAYLIST.equals(name);
             row.setOnFocusChangeListener((v, has) -> {
-                if (has) {
+                if (has && !isNew) {
                     pendingCategory = name;
                     handler.removeCallbacks(selectPendingCategory);
                     handler.postDelayed(selectPendingCategory, 300);
                 }
             });
             row.setOnClickListener(v -> {
+                if (isNew) {
+                    Menus.newPlaylist(this, null, this::channelsChanged);
+                    return;
+                }
                 selectCategory(name);
                 grid.requestFocus();
             });
+            if (Repo.isPlaylist(name)) {
+                row.setOnLongClickListener(v -> {
+                    Menus.playlist(this, name, this::channelsChanged);
+                    return true;
+                });
+            }
             categoryList.addView(row);
             categoryRows.add(row);
         }
@@ -253,7 +289,9 @@ public class MainActivity extends Activity implements Repo.Listener {
             int n = repo.count(name, favourites);
             View row = categoryRows.get(i);
             ((TextView) row.findViewById(R.id.cat_count)).setText(n == 0 ? "" : numbers.format(n));
-            row.setAlpha(n == 0 && !Repo.ALL.equals(name) ? 0.45f : 1f);
+            boolean dim = n == 0 && !Repo.ALL.equals(name) && !Repo.NEW_PLAYLIST.equals(name)
+                    && !Repo.isPlaylist(name);
+            row.setAlpha(dim ? 0.45f : 1f);
         }
     }
 
@@ -275,6 +313,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         if (repo.scanning || !repo.loaded) showEmpty(getString(R.string.empty_scanning));
         else if (Repo.FAVOURITES.equals(category)) showEmpty(getString(R.string.empty_favourites));
         else if (Repo.RECENT.equals(category)) showEmpty(getString(R.string.empty_recent));
+        else if (Repo.isPlaylist(category)) showEmpty(getString(R.string.empty_playlist));
         else showEmpty(getString(R.string.empty_category));
     }
 

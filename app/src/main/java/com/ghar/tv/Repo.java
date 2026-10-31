@@ -29,6 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class Repo {
 
     static final String RECENT = "Last Watched";
+    /** Category key for your own playlists: "pl:" + playlist id. */
+    static final String PLAYLIST = "pl:";
+    /** Not a category: the "+ New playlist" row. */
+    static final String NEW_PLAYLIST = "+new";
     static final String ALL = "All";
     static final String FAVOURITES = "Favourites";
     static final String NEPAL = "Nepal";
@@ -303,6 +307,31 @@ final class Repo {
 
     // -------------------------------------------------------------- queries
 
+    /** Category keys in display order: Last Watched, Favourites, your playlists, then the rest. */
+    static List<String> categoryNames(Context c) {
+        List<String> names = new ArrayList<>();
+        names.add(RECENT);
+        names.add(FAVOURITES);
+        for (Store.UserPlaylist p : Store.playlists(c)) names.add(PLAYLIST + p.id);
+        names.add(NEW_PLAYLIST);
+        for (String n : categoryNames()) if (!n.equals(RECENT) && !n.equals(FAVOURITES)) names.add(n);
+        return names;
+    }
+
+    /** What to show for a category key. */
+    static String label(Context c, String key) {
+        if (NEW_PLAYLIST.equals(key)) return c.getString(R.string.new_playlist);
+        if (key.startsWith(PLAYLIST)) {
+            Store.UserPlaylist p = Store.playlist(c, key.substring(PLAYLIST.length()));
+            return p == null ? "" : "♫  " + p.name;
+        }
+        return key;
+    }
+
+    static boolean isPlaylist(String key) {
+        return key != null && key.startsWith(PLAYLIST);
+    }
+
     static List<String> categoryNames() {
         List<String> names = new ArrayList<>();
         names.add(RECENT);
@@ -325,12 +354,14 @@ final class Repo {
             case INDIA:
                 return "in".equals(c.country);
             default:
-                return c.categories.contains(category);
+                return c.categories.contains(category); // (Last Watched / playlists handled in channels())
         }
     }
 
     List<Channel> channels(String category, Set<String> favourites) {
         if (RECENT.equals(category)) return recent();
+        if (NEW_PLAYLIST.equals(category)) return new ArrayList<>();
+        if (isPlaylist(category)) return playlistChannels(category);
         List<Channel> out = new ArrayList<>();
         for (Channel c : working) if (matches(c, category, favourites)) out.add(c);
         return out;
@@ -338,9 +369,23 @@ final class Repo {
 
     int count(String category, Set<String> favourites) {
         if (RECENT.equals(category)) return Session.recent(app).size();
+        if (NEW_PLAYLIST.equals(category)) return 0;
+        if (isPlaylist(category)) return playlistChannels(category).size();
         int n = 0;
         for (Channel c : working) if (matches(c, category, favourites)) n++;
         return n;
+    }
+
+    /** Your playlist, in the order you added channels (ones no longer working are left out). */
+    private List<Channel> playlistChannels(String key) {
+        List<Channel> out = new ArrayList<>();
+        Store.UserPlaylist p = Store.playlist(app, key.substring(PLAYLIST.length()));
+        if (p == null) return out;
+        for (String url : p.urls) {
+            int i = indexOf(working, url);
+            if (i >= 0) out.add(working.get(i));
+        }
+        return out;
     }
 
     /** Recently watched, newest first. Uses the live channel entry when it's in the list. */

@@ -56,6 +56,17 @@ final class Logos {
         });
     }
 
+    /** Load a logo into the caches ahead of time (no view). */
+    static void prefetch(Context ctx, String url) {
+        if (url == null || url.isEmpty() || MEMORY.get(url) != null) return;
+        File dir = new File(ctx.getCacheDir(), "logos");
+        POOL.execute(() -> {
+            if (MEMORY.get(url) != null) return;
+            Bitmap b = fetch(dir, url);
+            if (b != null) MEMORY.put(url, b);
+        });
+    }
+
     private static Bitmap fetch(File dir, String url) {
         try {
             File f = new File(dir, Integer.toHexString(url.hashCode()) + ".img");
