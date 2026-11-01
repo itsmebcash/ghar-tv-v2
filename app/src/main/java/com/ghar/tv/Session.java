@@ -70,7 +70,7 @@ final class Session {
     }
 
     static String category(Context c) {
-        return prefs(c).getString(KEY_CATEGORY, Repo.ALL);
+        return Repo.normalize(prefs(c).getString(KEY_CATEGORY, Repo.ALL));
     }
 
     static void setCategory(Context c, String category) {

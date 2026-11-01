@@ -151,3 +151,16 @@ When the TV sits idle on Ghar Launcher (and the launcher's screensaver is set to
 launcher asks Ghar TV to play your favourite channels muted, one after another, changing every 10 minutes
 (adjustable in the launcher's Settings). Any button returns to the home screen. Ghar TV plays the streams itself,
 so the launcher still never sees stream addresses. Only apps signed with the shared Ghar key can start it.
+
+## What's new in 2.5
+
+- **6 categories**, the same as Ghar TV Mobile: Local (Nepal + India), News, Entertainment, Education,
+  Lifestyle, Other.
+- **Live search**: hold **Back** anywhere (or Menu → Search). Results update as you type and spelling doesn't
+  have to be exact: "kisan" finds DD Kishan, "kantpur" finds Kantipur, "nepal tv" finds Nepal Television.
+- **Previous channel**: press **OK twice** quickly (or the remote's Last / 0 button, or Menu) to flip back and forth.
+- **Picture**: Fit, Fill, Stretch, 16:9 and 4:3.
+- **Sleep timer** (Menu): 15 min to 2 hours; a one-minute countdown, any button keeps watching.
+- **Favourites come back by themselves**: once a week, favourites that stopped working are checked again.
+- A more premium look: red accent, red hearts on saved channels, white logo plates, cleaner rows.
+

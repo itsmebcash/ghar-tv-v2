@@ -1,25 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="58dp"
+    android:layout_height="66dp"
     android:background="@drawable/panel_row"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp">
+    android:paddingStart="12dp"
+    android:paddingEnd="14dp">
 
     <TextView
         android:id="@+id/row_number"
         android:layout_width="40dp"
         android:layout_height="wrap_content"
         android:duplicateParentState="true"
+        android:fontFamily="sans-serif-medium"
         android:textColor="@color/panel_number"
         android:textSize="14sp" />
 
     <ImageView
         android:id="@+id/row_logo"
-        android:layout_width="60dp"
-        android:layout_height="36dp"
+        android:layout_width="68dp"
+        android:layout_height="42dp"
         android:background="@drawable/logo_bg"
         android:importantForAccessibility="no"
         android:padding="5dp"
@@ -28,7 +29,7 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="14dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -37,17 +38,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
             android:singleLine="true"
             android:textColor="#FFFFFF"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <TextView
             android:id="@+id/row_sub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#80FFFFFF"
-            android:textSize="11sp" />
+            android:textColor="#8CFFFFFF"
+            android:textSize="12sp" />
     </LinearLayout>
+
+    <!-- Saved to Favourites -->
+    <ImageView
+        android:id="@+id/row_fav"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginStart="10dp"
+        android:contentDescription="@string/favourite"
+        android:src="@drawable/ic_heart"
+        android:visibility="gone" />
 </LinearLayout>

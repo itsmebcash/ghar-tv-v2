@@ -243,4 +243,25 @@ final class Store {
         Snapshot.refreshAsync(c); // keep Ghar Launcher's view of favourites up to date
         return added;
     }
+
+    // ------------------------------------------------------- weekly checks
+
+    static long favouritesCheckTime(Context c) {
+        return prefs(c).getLong("fav_check_time", 0);
+    }
+
+    static void setFavouritesCheckTime(Context c, long t) {
+        prefs(c).edit().putLong("fav_check_time", t).apply();
+    }
+
+    // ---------------------------------------------------------- sleep timer
+
+    /** Minutes for the sleep timer (0 = off). Not saved across launches on purpose. */
+    static int sleepChoice(Context c) {
+        return prefs(c).getInt("sleep_choice", 60);
+    }
+
+    static void setSleepChoice(Context c, int minutes) {
+        prefs(c).edit().putInt("sleep_choice", minutes).apply();
+    }
 }

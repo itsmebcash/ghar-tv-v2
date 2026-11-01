@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Highlight of the row you're on in the channel list (remote) -->
+<!-- The row you're on (remote): a soft light card with a white outline -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <corners android:radius="8dp" />
-    <solid android:color="#40FFFFFF" />
+    <corners android:radius="10dp" />
+    <solid android:color="#2EFFFFFF" />
+    <stroke android:width="2dp" android:color="#E6FFFFFF" />
 </shape>

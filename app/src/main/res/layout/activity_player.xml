@@ -64,7 +64,7 @@
                 android:letterSpacing="0.1"
                 android:text="@string/joke_title"
                 android:textAllCaps="true"
-                android:textColor="#FFC27A"
+                android:textColor="#E50914"
                 android:textSize="10sp" />
 
             <TextView
@@ -107,7 +107,7 @@
                 android:layout_height="6dp"
                 android:layout_marginTop="10dp"
                 android:max="100"
-                android:progressTint="#FFC27A" />
+                android:progressTint="#E50914" />
         </LinearLayout>
 
         <!-- Short notices: skipped channel, screen mode, favourite added -->
@@ -479,7 +479,7 @@
                 android:contentDescription="@string/favourite"
                 android:gravity="center"
                 android:text="@string/star_empty"
-                android:textColor="#FFC27A"
+                android:textColor="#E50914"
                 android:textSize="24sp" />
         </LinearLayout>
 

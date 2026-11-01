@@ -185,6 +185,12 @@ public class MainActivity extends Activity implements Repo.Listener {
     public void onRepoChanged() {
         updateCategoryCounts();
         applyFilter(false);
+        if (!repo.favouritesBackShown && repo.favouritesBack > 0) {
+            repo.favouritesBackShown = true;
+            favourites = Store.favourites(this);
+            toast(repo.favouritesBack == 1 ? getString(R.string.favourite_back_one)
+                    : getString(R.string.favourites_back, repo.favouritesBack));
+        }
         if (repo.loadFailed) {
             status.setText(R.string.list_error);
             showEmpty(getString(R.string.list_error_detail));
@@ -268,13 +274,32 @@ public class MainActivity extends Activity implements Repo.Listener {
         markCategory();
     }
 
+    /** Live search (also: hold Back). Picking a channel plays it, with the results as the channel order. */
     private void askSearch() {
-        String current = Repo.isSearch(category) ? category.substring(Repo.SEARCH.length()) : "";
-        Menus.search(this, current, q -> {
-            selectCategory(Repo.SEARCH + q);
-            status.setText(getString(R.string.search_results, q, shown.size()));
-            grid.requestFocus();
+        SearchDialog.show(this, repo, (results, i, q) -> {
+            if (results.isEmpty()) return;
+            PlayerActivity.start(this, results, i, q.isEmpty() ? Repo.RECENT : Repo.SEARCH + q);
+            finish();
         });
+    }
+
+    /** Back is tracked so that holding it opens the search; a short press still goes back. */
+    @Override
+    public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0) {
+            event.startTracking();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+            askSearch();
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     private void selectCategory(String name) {
@@ -371,8 +396,8 @@ public class MainActivity extends Activity implements Repo.Listener {
             View tile = convertView != null ? convertView
                     : LayoutInflater.from(MainActivity.this).inflate(R.layout.item_channel, parent, false);
             Channel c = getItem(position);
-            ((TextView) tile.findViewById(R.id.name)).setText(
-                    favourites.contains(c.url) ? "★ " + c.name : c.name);
+            ((TextView) tile.findViewById(R.id.name)).setText(c.name);
+            tile.findViewById(R.id.fav_badge).setVisibility(favourites.contains(c.url) ? View.VISIBLE : View.GONE);
             ((TextView) tile.findViewById(R.id.sub)).setText(c.subtitle());
             TextView initials = tile.findViewById(R.id.initials);
             initials.setText(initials(c.name));

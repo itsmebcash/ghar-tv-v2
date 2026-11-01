@@ -17,7 +17,7 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="74dp"
+            android:layout_height="80dp"
             android:background="@drawable/logo_bg">
 
             <!-- Shown until (or instead of) the logo -->
@@ -27,7 +27,7 @@
                 android:layout_height="match_parent"
                 android:fontFamily="sans-serif-light"
                 android:gravity="center"
-                android:textColor="#80FFFFFF"
+                android:textColor="#66111111"
                 android:textSize="26sp" />
 
             <ImageView
@@ -38,6 +38,17 @@
                 android:importantForAccessibility="no"
                 android:padding="10dp"
                 android:scaleType="fitCenter" />
+
+            <!-- Saved to Favourites -->
+            <ImageView
+                android:id="@+id/fav_badge"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="5dp"
+                android:contentDescription="@string/favourite"
+                android:src="@drawable/ic_heart"
+                android:visibility="gone" />
         </FrameLayout>
 
         <TextView

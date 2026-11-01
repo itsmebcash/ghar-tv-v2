@@ -39,8 +39,43 @@ final class Repo {
     static final String SEARCH = "q:";
     static final String ALL = "All";
     static final String FAVOURITES = "Favourites";
-    static final String NEPAL = "Nepal";
-    static final String INDIA = "India";
+    /**
+     * The 6 categories (same as Ghar TV Mobile). Local is Nepal + India (by country); the other five
+     * gather the playlist's ~28 genres. A channel can be in more than one.
+     */
+    static final String LOCAL = "Local";
+    static final String NEWS = "News";
+    static final String ENTERTAINMENT = "Entertainment";
+    static final String EDUCATION = "Education";
+    static final String LIFESTYLE = "Lifestyle";
+    static final String OTHER = "Other";
+    static final String[] CATEGORIES = {LOCAL, NEWS, ENTERTAINMENT, EDUCATION, LIFESTYLE, OTHER};
+
+    private static final java.util.Map<String, String> GROUP = new java.util.HashMap<>();
+
+    static {
+        for (String g : new String[]{"News", "Business", "Weather", "Legislative"}) GROUP.put(g, NEWS);
+        for (String g : new String[]{"Entertainment", "Movies", "Series", "Comedy", "Classic", "Music",
+                "Sports", "Kids", "Animation", "Family"}) GROUP.put(g, ENTERTAINMENT);
+        for (String g : new String[]{"Education", "Documentary", "Science"}) GROUP.put(g, EDUCATION);
+        for (String g : new String[]{"Travel", "Lifestyle", "Cooking", "Culture", "Outdoor", "Relax",
+                "Shop", "Auto"}) GROUP.put(g, LIFESTYLE);
+    }
+
+    static String groupOf(String genre) {
+        String g = GROUP.get(genre);
+        return g != null ? g : OTHER;
+    }
+
+    /** A category saved by an older version ("Nepal", "Movies"...) becomes its new category. */
+    static String normalize(String key) {
+        if (key == null) return ALL;
+        if ("Nepal".equals(key) || "India".equals(key)) return LOCAL;
+        for (String k : CATEGORIES) if (k.equals(key)) return key;
+        if (key.equals(RECENT) || key.equals(ALL) || key.equals(FAVOURITES) || key.startsWith(PLAYLIST)
+                || key.startsWith(SEARCH) || isAction(key)) return key;
+        return groupOf(key);
+    }
 
     interface Listener {
         void onRepoChanged();
@@ -168,6 +203,7 @@ final class Repo {
                     notifyChanged();
                     Snapshot.refreshAsync(app);
                     if (visibleScreens > 0) resumeScanIfNeeded();
+                    recheckFavouritesWeekly();
                 } else {
                     fullRescan();
                 }
@@ -300,6 +336,53 @@ final class Repo {
 
     // ---------------------------------------------------------------- edits
 
+    // ------------------------------------------------- favourites, weekly
+
+    private static final long WEEK_MS = 7L * 24 * 60 * 60 * 1000;
+    /** Favourites found working again by the weekly check (shown once by the screens). */
+    int favouritesBack;
+    boolean favouritesBackShown = true;
+
+    /**
+     * Once a week, favourites that stopped working are tried again (just them, gently), and
+     * the ones that work come back into the lists - no full rescan needed.
+     */
+    private void recheckFavouritesWeekly() {
+        long last = Store.favouritesCheckTime(app);
+        if (System.currentTimeMillis() - last < WEEK_MS) return;
+        java.util.Set<String> favs = Store.favourites(app);
+        List<Channel> missing = new ArrayList<>();
+        for (Channel c : all) if (favs.contains(c.url) && !workingUrls.contains(c.url)) missing.add(c);
+        Store.setFavouritesCheckTime(app, System.currentTimeMillis());
+        if (missing.isEmpty()) return;
+        Store.ScanCache target = cache;
+        List<Channel> back = java.util.Collections.synchronizedList(new ArrayList<Channel>());
+        new Scanner(3).start(missing, new Scanner.Listener() {
+            @Override
+            public void onChecked(Channel c, boolean ok) {
+                if (!ok) return;
+                synchronized (target) {
+                    target.working.put(c.url, c.hls);
+                    target.okTime.put(c.url, System.currentTimeMillis());
+                }
+                back.add(c);
+            }
+
+            @Override
+            public void onFinished() {
+                main.post(() -> {
+                    if (back.isEmpty() || target != cache) return;
+                    for (Channel c : back) addWorking(c);
+                    favouritesBack = back.size();
+                    favouritesBackShown = false;
+                    saveAsync();
+                    Snapshot.refreshAsync(app);
+                    notifyChanged();
+                });
+            }
+        });
+    }
+
     /** Channels that failed while watching are taken off the list (until the next rescan). */
     void removeDead(Collection<String> urls) {
         if (urls.isEmpty()) return;
@@ -365,9 +448,7 @@ final class Repo {
         names.add(RECENT);
         names.add(ALL);
         names.add(FAVOURITES);
-        names.add(NEPAL);
-        names.add(INDIA);
-        for (String c : Playlist.CATEGORY_ORDER) names.add(c);
+        java.util.Collections.addAll(names, CATEGORIES);
         return names;
     }
 
@@ -377,12 +458,11 @@ final class Repo {
                 return true;
             case FAVOURITES:
                 return favourites.contains(c.url);
-            case NEPAL:
-                return "np".equals(c.country);
-            case INDIA:
-                return "in".equals(c.country);
-            default:
-                return c.categories.contains(category); // (Last Watched / playlists handled in channels())
+            case LOCAL:
+                return "np".equals(c.country) || "in".equals(c.country);
+            default: // (Last Watched / playlists handled in channels())
+                for (String g : c.categories) if (groupOf(g).equals(category)) return true;
+                return c.categories.isEmpty() && OTHER.equals(category);
         }
     }
 
@@ -406,34 +486,9 @@ final class Repo {
         return n;
     }
 
-    /**
-     * Working channels whose name (or category / country) contains every word you typed.
-     * Names that start with your search come first.
-     */
+    /** Working channels matching what you typed, best first (see {@link Search}). */
     List<Channel> search(String query) {
-        List<Channel> starts = new ArrayList<>();
-        List<Channel> contains = new ArrayList<>();
-        String q = query.trim().toLowerCase(java.util.Locale.ROOT);
-        if (q.isEmpty()) return starts;
-        String[] words = q.split("\\s+");
-        for (Channel c : working) {
-            String name = c.name.toLowerCase(java.util.Locale.ROOT);
-            String hay = name + " " + android.text.TextUtils.join(" ", c.categories).toLowerCase(java.util.Locale.ROOT)
-                    + " " + c.country;
-            boolean all = true;
-            for (String w : words) {
-                if (!hay.contains(w)) {
-                    all = false;
-                    break;
-                }
-            }
-            if (!all) continue;
-            if (name.startsWith(q)) starts.add(c);
-            else contains.add(c);
-            if (starts.size() + contains.size() >= 500) break;
-        }
-        starts.addAll(contains);
-        return starts;
+        return Search.find(working, query); // forgiving: "kisan" finds DD Kishan
     }
 
     /** Your playlist, in the order you added channels (ones no longer working are left out). */

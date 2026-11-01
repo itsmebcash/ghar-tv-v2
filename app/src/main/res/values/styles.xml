@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="accent">#FFC27A</color>
+    <color name="accent">#E50914</color>
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@drawable/bg</item>
         <item name="android:colorAccent">@color/accent</item>

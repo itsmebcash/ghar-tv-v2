@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
-        <shape><corners android:radius="8dp" /><solid android:color="#F5FFFFFF" /></shape>
+        <shape><corners android:radius="10dp" /><solid android:color="#FFFFFFFF" /></shape>
     </item>
     <item android:state_activated="true">
-        <shape><corners android:radius="8dp" /><solid android:color="#26FFFFFF" /></shape>
+        <layer-list>
+            <item><shape><corners android:radius="10dp" /><solid android:color="#1FFFFFFF" /></shape></item>
+            <item android:gravity="start|center_vertical" android:width="4dp" android:height="20dp" android:left="2dp">
+                <shape><corners android:radius="2dp" /><solid android:color="#FFE50914" /></shape>
+            </item>
+        </layer-list>
     </item>
     <item android:drawable="@android:color/transparent" />
 </selector>

@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Channel card in the browser: frosted; white and lifted when highlighted -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_activated="true">
-        <shape><corners android:radius="10dp" /><solid android:color="#F5FFFFFF" /></shape>
+        <shape><corners android:radius="14dp" /><solid android:color="#FFFFFFFF" /></shape>
     </item>
     <item>
-        <shape><corners android:radius="10dp" /><solid android:color="#1FFFFFFF" /></shape>
+        <shape>
+            <corners android:radius="14dp" />
+            <gradient android:angle="270" android:startColor="#2EFFFFFF" android:endColor="#14FFFFFF" />
+            <stroke android:width="1dp" android:color="#1FFFFFFF" />
+        </shape>
     </item>
 </selector>

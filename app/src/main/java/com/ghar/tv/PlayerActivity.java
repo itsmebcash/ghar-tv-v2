@@ -67,12 +67,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private static final long INFO_VISIBLE_MS = 4_000;
     private static final int MAX_RECONNECTS = 3;
 
+    /** Fit, Fill (crop), Stretch, 16:9 and 4:3 (the last two: a box of that shape, picture stretched into it). */
     private static final int[] RESIZE_MODES = {
             AspectRatioFrameLayout.RESIZE_MODE_FIT,
             AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
             AspectRatioFrameLayout.RESIZE_MODE_FILL,
+            AspectRatioFrameLayout.RESIZE_MODE_FILL,
+            AspectRatioFrameLayout.RESIZE_MODE_FILL,
     };
-    private static final int[] MODE_LABELS = {R.string.mode_fit, R.string.mode_fill, R.string.mode_stretch};
+    private static final int[] MODE_LABELS = {R.string.mode_fit, R.string.mode_fill, R.string.mode_stretch,
+            R.string.mode_wide, R.string.mode_classic};
 
     /** Phone only: follow how the phone is held, or lock it. */
     private static final int[] ORIENTATIONS = {
@@ -109,6 +113,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private String browseCategory;
     private final List<Channel> browseList = new ArrayList<>();
     private java.util.Set<String> favs = new java.util.HashSet<>();
+
+    // Previous channel (flip back and forth)
+    private String nowUrl;
+    private String previousUrl;
+    private long lastOkAt;
+
+    // Sleep timer
+    private long sleepAt;          // elapsedRealtime when playback stops; 0 = off
+    private boolean sleepWarning;  // the last minute: any button keeps watching
 
     private boolean isTv;
     private boolean watchPage;   // phone upright
@@ -250,6 +263,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         playerView.setUseController(false);
         screenMode = Store.screenMode(this);
         applyScreenMode(false);
+        findViewById(R.id.video_area).addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if (r - l != or - ol || b - t != ob - ot) v.post(() -> applyScreenMode(false)); // 16:9 / 4:3 box
+        });
         if (!isTv) {
             orientation = Store.orientation(this);
             applyOrientation(false);
@@ -320,7 +336,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         belowFav.setOnClickListener(v -> toggleFavourite(current()));
         findViewById(R.id.panel_scrim).setOnClickListener(v -> closePanel());
         findViewById(R.id.browse_button).setOnClickListener(v -> openBrowser());
-        findViewById(R.id.search_button).setOnClickListener(v -> askSearch());
+        findViewById(R.id.search_button).setOnClickListener(v -> openLiveSearch());
         findViewById(R.id.more_button).setOnClickListener(v -> showOptions());
 
         // Tap = watch; double-tap (phone) = favourite; hold OK / long-press = options & playlists.
@@ -392,7 +408,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             boolean isNew = Repo.isAction(n);
             String label = Repo.label(this, n);
             View.OnClickListener click = v -> {
-                if (Repo.SEARCH_ROW.equals(n)) askSearch();
+                if (Repo.SEARCH_ROW.equals(n)) openLiveSearch();
                 else if (Repo.NEW_PLAYLIST.equals(n)) Menus.newPlaylist(this, null, this::channelsChanged);
                 else setBrowseCategory(n, true);
             };
@@ -658,6 +674,12 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             number.setText(String.valueOf(index + 1));
         }
         refreshBrowse(false);
+        if (!repo.favouritesBackShown && repo.favouritesBack > 0) {
+            repo.favouritesBackShown = true;
+            favs = Store.favourites(this);
+            showMessage(repo.favouritesBack == 1 ? getString(R.string.favourite_back_one)
+                    : getString(R.string.favourites_back, repo.favouritesBack));
+        }
     }
 
     private Channel current() {
@@ -813,7 +835,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        // Last minute of the sleep timer: any button means "still watching".
+        if (sleepWarning && event.getKeyCode() != KeyEvent.KEYCODE_BACK) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) keepWatching();
+            return true;
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN && !isPanelOpen()) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_LAST_CHANNEL || event.getKeyCode() == KeyEvent.KEYCODE_0) {
+                if (event.getRepeatCount() == 0) flipToPrevious();
+                return true;
+            }
             switch (event.getKeyCode()) {
                 // TV remote: Up / Down change channel, Left / Right open the channel menu.
                 case KeyEvent.KEYCODE_DPAD_UP:
@@ -836,9 +867,20 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
-                    // Press = info; hold = add/remove favourite.
-                    if (event.getRepeatCount() == 0) showInfo();
-                    else if (event.getRepeatCount() == 1) toggleFavourite(current());
+                    // Press = info; press twice quickly = previous channel; hold = add/remove favourite.
+                    if (event.getRepeatCount() == 0) {
+                        long now = android.os.SystemClock.uptimeMillis();
+                        if (now - lastOkAt < 450) {
+                            lastOkAt = 0;
+                            flipToPrevious();
+                        } else {
+                            lastOkAt = now;
+                            showInfo();
+                        }
+                    } else if (event.getRepeatCount() == 1) {
+                        lastOkAt = 0;
+                        toggleFavourite(current());
+                    }
                     return true;
                 case KeyEvent.KEYCODE_INFO:
                     showInfo();
@@ -854,6 +896,132 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    // ================================================================ back key
+
+    /** Back: tracked, so holding it can open the search instead (see onKeyLongPress). */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0) {
+            event.startTracking();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    /** Hold Back: live channel search. (A short press still goes back.) */
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            openLiveSearch();
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
+    }
+
+    private void openLiveSearch() {
+        SearchDialog.show(this, repo, (results, i, q) -> {
+            if (results.isEmpty()) return;
+            queue = new ArrayList<>(results);
+            index = i;
+            category = q.isEmpty() ? Repo.RECENT : Repo.SEARCH + q;
+            restoring = false;
+            direction = 1;
+            if (isPanelOpen()) closePanel();
+            play(index);
+        });
+    }
+
+    // ======================================================== previous channel
+
+    /** Flip back to the channel you watched before this one (and again to come back). */
+    private void flipToPrevious() {
+        if (previousUrl == null) {
+            showMessage(getString(R.string.no_previous));
+            return;
+        }
+        int i = Repo.indexOf(queue, previousUrl);
+        if (i < 0) {
+            Channel c = repo.find(previousUrl);
+            if (c == null) {
+                for (Channel r : Session.recent(this)) if (r.url.equals(previousUrl)) c = r;
+            }
+            if (c == null) {
+                showMessage(getString(R.string.no_previous));
+                return;
+            }
+            queue.add(index + 1, c);
+            i = index + 1;
+        }
+        direction = i >= index ? 1 : -1;
+        play(i);
+    }
+
+    // ============================================================ sleep timer
+
+    private static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 90, 120};
+    private static final long SLEEP_WARNING_MS = 60_000;
+
+    private String sleepLabel() {
+        if (sleepAt == 0) return getString(R.string.sleep_off);
+        long left = sleepAt - android.os.SystemClock.elapsedRealtime();
+        return getString(R.string.sleep_left, Math.max(1, (int) Math.ceil(left / 60_000.0)));
+    }
+
+    private void chooseSleepTimer() {
+        String[] labels = new String[SLEEP_MINUTES.length];
+        for (int i = 0; i < SLEEP_MINUTES.length; i++) {
+            labels[i] = SLEEP_MINUTES[i] == 0 ? getString(R.string.sleep_off)
+                    : getString(R.string.sleep_minutes, SLEEP_MINUTES[i]);
+        }
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(getString(R.string.option_sleep, sleepLabel()))
+                .setItems(labels, (d, w) -> setSleepTimer(SLEEP_MINUTES[w]))
+                .show();
+    }
+
+    private void setSleepTimer(int minutes) {
+        handler.removeCallbacks(sleepTick);
+        sleepWarning = false;
+        if (minutes <= 0) {
+            sleepAt = 0;
+            showMessage(getString(R.string.sleep_cancelled));
+            return;
+        }
+        Store.setSleepChoice(this, minutes);
+        sleepAt = android.os.SystemClock.elapsedRealtime() + minutes * 60_000L;
+        handler.postDelayed(sleepTick, Math.max(0, minutes * 60_000L - SLEEP_WARNING_MS));
+        showMessage(getString(R.string.sleep_set, minutes));
+    }
+
+    /** The last minute: a countdown, then playback stops and the TV can go to sleep. */
+    private final Runnable sleepTick = new Runnable() {
+        @Override
+        public void run() {
+            if (sleepAt == 0) return;
+            long left = sleepAt - android.os.SystemClock.elapsedRealtime();
+            if (left <= 0) {
+                sleepAt = 0;
+                sleepWarning = false;
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                handler.removeCallbacksAndMessages(null);
+                releasePlayer();
+                repo.exitNow();
+                finish();
+                return;
+            }
+            sleepWarning = true;
+            showMessage(getString(R.string.sleep_warning, (int) Math.ceil(left / 1000.0)));
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    private void keepWatching() {
+        handler.removeCallbacks(sleepTick);
+        sleepAt = 0;
+        sleepWarning = false;
+        showMessage(getString(R.string.sleep_kept));
     }
 
     private void next() {
@@ -877,6 +1045,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         int size = queue.size();
         index = ((i % size) + size) % size;
         Channel c = queue.get(index);
+        if (nowUrl != null && !nowUrl.equals(c.url)) previousUrl = nowUrl;
+        nowUrl = c.url;
         ready = false;
         reconnects = 0;
         programme = null;
@@ -940,6 +1110,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         Channel c = current();
         boolean fav = c != null && favs.contains(c.url);
         favButton.setText(fav ? R.string.fav_remove : R.string.fav_add);
+        favButton.setTextColor(fav ? 0xFFFF3B47 : 0xFFFFFFFF); // red heart when saved
         belowFav.setText(fav ? R.string.star_full : R.string.star_empty);
     }
 
@@ -1033,7 +1204,29 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     private void applyScreenMode(boolean announce) {
         if (screenMode < 0 || screenMode >= RESIZE_MODES.length) screenMode = 0;
-        playerView.setResizeMode(RESIZE_MODES[screenMode]);
+        View area = findViewById(R.id.video_area);
+        int w = ViewGroup.LayoutParams.MATCH_PARENT;
+        int h = ViewGroup.LayoutParams.MATCH_PARENT;
+        int resize = RESIZE_MODES[screenMode];
+        if (screenMode >= 3 && !watchPage && area.getWidth() > 0) {
+            float r = screenMode == 3 ? 16f / 9f : 4f / 3f;
+            w = area.getWidth();
+            h = Math.round(w / r);
+            if (h > area.getHeight()) {
+                h = area.getHeight();
+                w = Math.round(h * r);
+            }
+        } else if (screenMode >= 3) {
+            resize = AspectRatioFrameLayout.RESIZE_MODE_FIT; // phone watch page: the box is already 16:9
+        }
+        android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerView.getLayoutParams();
+        if (lp.width != w || lp.height != h) {
+            lp.width = w;
+            lp.height = h;
+            lp.gravity = android.view.Gravity.CENTER;
+            playerView.setLayoutParams(lp);
+        }
+        playerView.setResizeMode(resize);
         String label = getString(MODE_LABELS[screenMode]);
         modeButton.setText(label);
         if (announce) showMessage(getString(R.string.screen_mode, label));
@@ -1121,24 +1314,6 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         return "Track " + n;
     }
 
-    /** Search all working channels by name, category or country; results appear in the list. */
-    private void askSearch() {
-        String current = Repo.isSearch(browseCategory) ? browseCategory.substring(Repo.SEARCH.length()) : "";
-        Menus.search(this, current, q -> {
-            setBrowseCategory(Repo.SEARCH + q, true);
-            showMessage(browseList.isEmpty()
-                    ? getString(R.string.search_none, q)
-                    : getString(R.string.search_found, browseList.size(), q));
-            if (!watchPage) {
-                if (!isPanelOpen()) openPanel(true);
-                panelList.post(() -> {
-                    panelList.requestFocus();
-                    panelList.setSelection(0);
-                });
-            }
-        });
-    }
-
     private void rescan() {
         Menus.confirmRescan(this, repo.all.size(), () -> {
             repo.fullRescan();
@@ -1151,22 +1326,27 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         Channel c = current();
         if (c == null) return;
         boolean fav = favs.contains(c.url);
+        Channel prev = previousUrl == null ? null : repo.find(previousUrl);
         String[] items = {
                 getString(R.string.option_search),
-                getString(R.string.option_subtitles),
-                getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
                 getString(fav ? R.string.menu_unfavourite : R.string.menu_favourite),
+                getString(R.string.option_previous, prev != null ? prev.name : "–"),
+                getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
+                getString(R.string.option_sleep, sleepLabel()),
+                getString(R.string.option_subtitles),
                 getString(R.string.menu_add_to_playlist),
                 getString(R.string.option_rescan),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(c.name)
                 .setItems(items, (d, w) -> {
-                    if (w == 0) askSearch();
-                    else if (w == 1) chooseSubtitles();
-                    else if (w == 2) cycleScreenMode();
-                    else if (w == 3) toggleFavourite(c);
-                    else if (w == 4) Menus.addToPlaylist(this, c, this::channelsChanged);
+                    if (w == 0) openLiveSearch();
+                    else if (w == 1) toggleFavourite(c);
+                    else if (w == 2) flipToPrevious();
+                    else if (w == 3) cycleScreenMode();
+                    else if (w == 4) chooseSleepTimer();
+                    else if (w == 5) chooseSubtitles();
+                    else if (w == 6) Menus.addToPlaylist(this, c, this::channelsChanged);
                     else rescan();
                 })
                 .show();
@@ -1343,7 +1523,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             Channel c = getItem(position);
             boolean fav = favs.contains(c.url);
             ((TextView) row.findViewById(R.id.row_number)).setText(String.valueOf(position + 1));
-            ((TextView) row.findViewById(R.id.row_name)).setText(fav ? "★ " + c.name : c.name);
+            ((TextView) row.findViewById(R.id.row_name)).setText(c.name);
+            row.findViewById(R.id.row_fav).setVisibility(fav ? View.VISIBLE : View.GONE);
             ((TextView) row.findViewById(R.id.row_sub)).setText(c.subtitle());
             Logos.load(PlayerActivity.this, (ImageView) row.findViewById(R.id.row_logo), c.logo, null);
             Channel now = current();
