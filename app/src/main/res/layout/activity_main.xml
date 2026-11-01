@@ -47,6 +47,20 @@
             android:text="@string/rescan"
             android:textColor="@color/category_text"
             android:textSize="14sp" />
+
+        <!-- Settings: search, get favourites from phone, picture, about -->
+        <ImageView
+            android:id="@+id/settings_button"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="12dp"
+            android:background="@drawable/round_button"
+            android:clickable="true"
+            android:contentDescription="@string/settings"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_settings"
+            android:tint="@color/on_round" />
     </LinearLayout>
 
     <TextView

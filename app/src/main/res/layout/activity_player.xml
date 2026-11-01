@@ -355,6 +355,19 @@
                         android:text="@string/browse_all"
                         android:textColor="@color/category_text"
                         android:textSize="13sp" />
+
+                    <ImageView
+                        android:id="@+id/panel_settings"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/round_button"
+                        android:clickable="true"
+                        android:contentDescription="@string/settings"
+                        android:focusable="true"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_settings"
+                        android:tint="@color/on_round" />
                 </LinearLayout>
 
                 <TextView

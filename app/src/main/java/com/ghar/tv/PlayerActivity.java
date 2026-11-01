@@ -338,6 +338,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         findViewById(R.id.panel_scrim).setOnClickListener(v -> closePanel());
         findViewById(R.id.browse_button).setOnClickListener(v -> openBrowser());
         findViewById(R.id.search_button).setOnClickListener(v -> openLiveSearch());
+        findViewById(R.id.panel_settings).setOnClickListener(v -> showOptions()); // remotes without a Menu key
         findViewById(R.id.more_button).setOnClickListener(v -> showOptions());
 
         // Tap = watch; double-tap (phone) = favourite; hold OK / long-press = options & playlists.
@@ -925,11 +926,23 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     /** Hold Back: live channel search. (A short press still goes back.) */
     @Override
     public boolean onKeyLongPress(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            openLiveSearch();
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+            searchOnRelease = true; // open it when Back is let go, or the release would close the keyboard
             return true;
         }
         return super.onKeyLongPress(keyCode, event);
+    }
+
+    private boolean searchOnRelease;
+
+    @Override
+    public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK && searchOnRelease) {
+            searchOnRelease = false;
+            openLiveSearch();
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
     }
 
     private void openLiveSearch() {
@@ -1349,9 +1362,10 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 getString(R.string.menu_add_to_playlist),
                 getString(R.string.option_from_phone),
                 getString(R.string.option_rescan),
+                getString(R.string.option_about),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle(c.name)
+                .setTitle(getString(R.string.settings_for, c.name))
                 .setItems(items, (d, w) -> {
                     if (w == 0) openLiveSearch();
                     else if (w == 1) toggleFavourite(c);
@@ -1361,7 +1375,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     else if (w == 5) chooseSubtitles();
                     else if (w == 6) Menus.addToPlaylist(this, c, this::channelsChanged);
                     else if (w == 7) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
-                    else rescan();
+                    else if (w == 8) rescan();
+                    else MainActivity.showAbout(this);
                 })
                 .show();
     }

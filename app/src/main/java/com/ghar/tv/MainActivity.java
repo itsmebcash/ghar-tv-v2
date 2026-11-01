@@ -92,6 +92,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         if (!Device.isTv(this)) ((TextView) findViewById(R.id.hint)).setText(R.string.hint_phone);
 
         findViewById(R.id.rescan).setOnClickListener(v -> confirmRescan());
+        findViewById(R.id.settings_button).setOnClickListener(v -> showSettings());
 
         adapter = new ChannelAdapter();
         grid.setAdapter(adapter);
@@ -274,6 +275,62 @@ public class MainActivity extends Activity implements Repo.Listener {
         markCategory();
     }
 
+    /** The Settings button (and Menu): everything that isn't a channel. */
+    private void showSettings() {
+        String[] modes = {getString(R.string.mode_fit), getString(R.string.mode_fill), getString(R.string.mode_stretch),
+                getString(R.string.mode_wide), getString(R.string.mode_classic)};
+        int mode = Math.max(0, Math.min(modes.length - 1, Store.screenMode(this)));
+        String[] items = {
+                getString(R.string.option_search),
+                getString(R.string.option_from_phone),
+                getString(R.string.option_screen, modes[mode]),
+                getString(R.string.option_rescan),
+                getString(R.string.option_about),
+        };
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.settings)
+                .setItems(items, (d, w) -> {
+                    if (w == 0) askSearch();
+                    else if (w == 1) startActivityForResult(new Intent(this, ReceiveActivity.class), 41);
+                    else if (w == 2) {
+                        int next = (mode + 1) % modes.length;
+                        Store.setScreenMode(this, next);
+                        toast(getString(R.string.screen_mode, modes[next]));
+                    } else if (w == 3) confirmRescan();
+                    else showAbout(this);
+                })
+                .show();
+    }
+
+    static void showAbout(Activity a) {
+        String version = "";
+        try {
+            version = a.getPackageManager().getPackageInfo(a.getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+            // unknown
+        }
+        new android.app.AlertDialog.Builder(a, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.app_name)
+                .setMessage(a.getString(R.string.about_text, version))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 41 && resultCode == RESULT_OK) channelsChanged(); // favourites from the phone
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_MENU && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            showSettings();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     /** Live search (also: hold Back). Picking a channel plays it, with the results as the channel order. */
     private void askSearch() {
         SearchDialog.show(this, repo, (results, i, q) -> {
@@ -296,10 +353,22 @@ public class MainActivity extends Activity implements Repo.Listener {
     @Override
     public boolean onKeyLongPress(int keyCode, android.view.KeyEvent event) {
         if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
-            askSearch();
+            searchOnRelease = true; // open it when Back is let go, or the release would close the keyboard
             return true;
         }
         return super.onKeyLongPress(keyCode, event);
+    }
+
+    private boolean searchOnRelease;
+
+    @Override
+    public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK && searchOnRelease) {
+            searchOnRelease = false;
+            askSearch();
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
     }
 
     private void selectCategory(String name) {

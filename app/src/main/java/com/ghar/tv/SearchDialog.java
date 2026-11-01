@@ -131,6 +131,15 @@ final class SearchDialog {
         update.run();
         d.show();
         input.requestFocus();
+        // Some TV keyboards only open when asked directly.
+        input.postDelayed(() -> showKeyboard(a, input), 250);
+        input.setOnClickListener(v -> showKeyboard(a, input)); // OK on the box: keyboard again
+    }
+
+    private static void showKeyboard(Activity a, EditText input) {
+        android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+        if (imm != null && input.hasFocus()) imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
     }
 
     private static final class Adapter extends BaseAdapter {

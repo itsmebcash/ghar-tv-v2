@@ -169,7 +169,7 @@ so the launcher still never sees stream addresses. Only apps signed with the sha
 
 Copy favourites and playlists from **Ghar TV Mobile** to the TV over your home Wi-Fi:
 
-1. TV: Ghar TV → **Menu** → **Get favourites from phone**. The TV shows a 4-digit code (and its address).
+1. TV: Ghar TV → **Settings** (⚙ next to Rescan, or ⚙ in the channel panel, or Menu) → **Get favourites from phone**. The TV shows a 4-digit code (and its address).
 2. Phone (same Wi-Fi): Ghar TV Mobile → **Settings** → **Send favourites & playlists to TV**.
 3. Tap the TV in the list (or type the address it shows) and enter the code.
 
