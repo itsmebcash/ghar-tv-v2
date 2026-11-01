@@ -71,7 +71,7 @@
     <string name="empty_scanning">Finding working channels… they will appear here as they pass.</string>
     <string name="empty_favourites">No favourites yet. Hold OK on a channel to add it.</string>
     <string name="empty_category">No working channels in this category right now.</string>
-    <string name="hint">Hold OK on a channel for Favourites and playlists</string>
+    <string name="hint">Hold OK on a channel for Favourites and playlists  ·  ⚙ for settings and Get favourites from phone  ·  Back twice to leave</string>
     <string name="player_hint_tv">▲ ▼  channel up / down   ·   ◀ ▶  channel menu   ·   Menu  options   ·   Hold OK  favourite   ·   Back  exit</string>
     <string name="player_hint_phone">Middle: swipe to change channel   ·   Left: brightness   ·   Right: volume   ·   Tap: controls</string>
     <string name="panel_hint">◀ categories   ·   ▲ ▼ channels   ·   OK watch   ·   Hold OK options   ·   Hold Back search</string>
@@ -122,4 +122,5 @@
     <string name="settings_for">Settings · %1$s</string>
     <string name="option_about">About Ghar TV</string>
     <string name="about_text">Version %1$s\n\nFree live TV from around the world for your Android TV. Ghar TV checks the public iptv-org channel list and shows only the channels that actually work, with categories, favourites, playlists and search.\n\nConcept by Bikash Sharma, Imprintfy Tech.\n\nChannels: iptv-org.github.io</string>
+    <string name="back_again_to_exit">Press Back again to leave Ghar TV</string>
 </resources>

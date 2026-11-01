@@ -142,17 +142,21 @@ public class MainActivity extends Activity implements Repo.Listener {
         super.onDestroy();
     }
 
-    /** Back from the browser returns to the channel you were watching (if any); otherwise exits. */
+    /** Back on the home page: press twice to leave the app. (Back while watching comes here.) */
     @Override
     public void onBackPressed() {
-        if (browseMode && Session.lastChannel(this) != null) {
-            PlayerActivity.resume(this);
-            finish();
-        } else {
-            repo.exitNow();
-            finish();
+        // The home page: Back twice leaves the app (so one stray press never closes it).
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastBack > 2000) {
+            lastBack = now;
+            toast(getString(R.string.back_again_to_exit));
+            return;
         }
+        repo.exitNow();
+        finish();
     }
+
+    private long lastBack;
 
     private void quickFavourite(int position) {
         if (position >= shown.size()) return;

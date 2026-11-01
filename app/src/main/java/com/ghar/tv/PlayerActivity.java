@@ -572,11 +572,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
-    /** Back: close the channel panel if open; otherwise stop everything and leave the app. */
+    /** Back: close the channel panel if open; otherwise go to the home page (TV) or leave (phone). */
     @Override
     public void onBackPressed() {
         if (isPanelOpen()) {
             closePanel();
+            return;
+        }
+        if (isTv) { // TV: Back goes to the Ghar TV home page (channels, settings, get from phone)
+            openBrowser();
             return;
         }
         handler.removeCallbacksAndMessages(null);
