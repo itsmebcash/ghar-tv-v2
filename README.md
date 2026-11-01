@@ -144,3 +144,10 @@ Ghar Launcher shows your **Favourite Channels** and **Continue Watching** on the
 - Streams come from iptv-org, a public directory of free-to-air channels; availability
   changes constantly, which is why the app tests them.
 - Player: Google Media3 (ExoPlayer) — HLS and MPEG-TS streams.
+
+## Screensaver for Ghar Launcher (2.4)
+
+When the TV sits idle on Ghar Launcher (and the launcher's screensaver is set to *Favourite channels*), the
+launcher asks Ghar TV to play your favourite channels muted, one after another, changing every 10 minutes
+(adjustable in the launcher's Settings). Any button returns to the home screen. Ghar TV plays the streams itself,
+so the launcher still never sees stream addresses. Only apps signed with the shared Ghar key can start it.

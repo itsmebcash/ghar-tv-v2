@@ -70,5 +70,21 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Ghar Launcher's screensaver: favourite channels, muted, one after another -->
+        <activity
+            android:name=".ScreensaverActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:permission="com.ghar.tv.permission.CHANNELS"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="com.ghar.tv.action.SCREENSAVER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

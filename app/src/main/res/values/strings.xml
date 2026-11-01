@@ -89,4 +89,5 @@
     <string name="skip_slow">too slow to start</string>
     <string name="skip_error">not working</string>
     <string name="skipping">Skipped %1$s (%2$s)</string>
+    <string name="saver_sub">%1$s  ·  muted  ·  any button to exit</string>
 </resources>
