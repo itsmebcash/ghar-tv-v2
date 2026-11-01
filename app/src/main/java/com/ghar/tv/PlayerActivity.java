@@ -66,6 +66,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private static final long START_TIMEOUT_MS = 12_000;
     private static final long INFO_VISIBLE_MS = 4_000;
     private static final int MAX_RECONNECTS = 3;
+    private static final int REQUEST_FROM_PHONE = 41;
 
     /** Fit, Fill (crop), Stretch, 16:9 and 4:3 (the last two: a box of that shape, picture stretched into it). */
     private static final int[] RESIZE_MODES = {
@@ -900,6 +901,17 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     // ================================================================ back key
 
+    /** Back from "Get from phone": new favourites and playlists show up straight away. */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_FROM_PHONE && resultCode == RESULT_OK) {
+            favs = Store.favourites(this);
+            channelsChanged();
+            refreshBrowse(false);
+        }
+    }
+
     /** Back: tracked, so holding it can open the search instead (see onKeyLongPress). */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -1335,6 +1347,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_sleep, sleepLabel()),
                 getString(R.string.option_subtitles),
                 getString(R.string.menu_add_to_playlist),
+                getString(R.string.option_from_phone),
                 getString(R.string.option_rescan),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -1347,6 +1360,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     else if (w == 4) chooseSleepTimer();
                     else if (w == 5) chooseSubtitles();
                     else if (w == 6) Menus.addToPlaylist(this, c, this::channelsChanged);
+                    else if (w == 7) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
                     else rescan();
                 })
                 .show();

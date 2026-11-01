@@ -164,3 +164,14 @@ so the launcher still never sees stream addresses. Only apps signed with the sha
 - **Favourites come back by themselves**: once a week, favourites that stopped working are checked again.
 - A more premium look: red accent, red hearts on saved channels, white logo plates, cleaner rows.
 
+
+## What's new in 2.6: favourites from your phone
+
+Copy favourites and playlists from **Ghar TV Mobile** to the TV over your home Wi-Fi:
+
+1. TV: Ghar TV → **Menu** → **Get favourites from phone**. The TV shows a 4-digit code (and its address).
+2. Phone (same Wi-Fi): Ghar TV Mobile → **Settings** → **Send favourites & playlists to TV**.
+3. Tap the TV in the list (or type the address it shows) and enter the code.
+
+The TV only adds: favourites are added to yours, and a playlist with the same name gets the new channels.
+It only listens while that screen is open, only accepts the code on screen, and closes after 5 wrong codes.

@@ -264,4 +264,50 @@ final class Store {
     static void setSleepChoice(Context c, int minutes) {
         prefs(c).edit().putInt("sleep_choice", minutes).apply();
     }
+
+    // ------------------------------------------------------- from the phone
+
+    /**
+     * Adds favourites and playlists sent from Ghar TV Mobile. Nothing is removed: favourites are
+     * added to yours, and a playlist with the same name gets the new channels added to it.
+     *
+     * @return {new favourites, playlists created, playlists updated, channels added to playlists}
+     */
+    static synchronized int[] importFromPhone(Context c, java.util.Collection<String> favourites,
+                                              List<UserPlaylist> incoming) {
+        Set<String> favs = favourites(c);
+        int before = favs.size();
+        for (String u : favourites) if (u != null && u.startsWith("http")) favs.add(u);
+        prefs(c).edit().putStringSet(KEY_FAVS, favs).apply();
+        int newFavs = favs.size() - before;
+
+        List<UserPlaylist> mine = playlists(c);
+        int created = 0;
+        int updated = 0;
+        int added = 0;
+        for (UserPlaylist in : incoming) {
+            if (in.name == null || in.name.trim().isEmpty()) continue;
+            UserPlaylist target = null;
+            for (UserPlaylist p : mine) if (p.name.equalsIgnoreCase(in.name.trim())) target = p;
+            int n = 0;
+            if (target == null) {
+                target = new UserPlaylist();
+                target.id = Long.toString(System.currentTimeMillis(), 36) + created;
+                target.name = in.name.trim();
+                mine.add(target);
+                created++;
+            }
+            for (String u : in.urls) {
+                if (u != null && u.startsWith("http") && !target.urls.contains(u)) {
+                    target.urls.add(u);
+                    n++;
+                }
+            }
+            added += n;
+            if (n > 0 && target.urls.size() > n) updated++; // an existing playlist got new channels
+        }
+        savePlaylists(c, mine);
+        Snapshot.refreshAsync(c); // Ghar Launcher's Favourite Channels row
+        return new int[]{newFavs, created, updated, added};
+    }
 }

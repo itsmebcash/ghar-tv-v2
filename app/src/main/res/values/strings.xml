@@ -107,4 +107,15 @@
     <string name="no_previous">No previous channel yet</string>
     <string name="favourites_back">%1$d of your favourite channels are working again</string>
     <string name="favourite_back_one">A favourite channel is working again</string>
+    <string name="option_from_phone">Get favourites from phone…</string>
+    <string name="receive_title">Get favourites from your phone</string>
+    <string name="receive_steps">1.  Connect your phone to the same Wi-Fi as this TV.\n2.  In Ghar TV Mobile, open Settings → Send to TV.\n3.  Pick this TV and type the code on the right.</string>
+    <string name="receive_code_label">Code</string>
+    <string name="receive_waiting">Waiting for your phone…</string>
+    <string name="receive_done">✓  Added %1$d favourites · %2$d new playlists · %3$d playlists updated</string>
+    <string name="receive_privacy">Only works on your home Wi-Fi, only while this screen is open, and only with this code. Nothing on the TV is deleted.</string>
+    <string name="receive_address">If the phone doesn\'t find the TV, type:\n%1$s:%2$d</string>
+    <string name="receive_no_network">This TV isn\'t connected to Wi-Fi or Ethernet.</string>
+    <string name="receive_no_port">Couldn\'t start receiving. Open this screen again.</string>
+    <string name="receive_locked">Too many wrong codes: closed for safety. Open this screen again for a new code.</string>
 </resources>
