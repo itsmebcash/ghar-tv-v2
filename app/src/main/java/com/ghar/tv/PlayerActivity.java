@@ -572,15 +572,19 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
-    /** Back: close the channel panel if open; otherwise go to the home page (TV) or leave (phone). */
+    /**
+     * Back while watching (TV): the channel keeps playing small in the bottom-right corner while the
+     * channel list opens beside it (like YouTube). Back again = full screen. "All channels" in the
+     * list goes to the home page. On a phone, Back leaves.
+     */
     @Override
     public void onBackPressed() {
         if (isPanelOpen()) {
-            closePanel();
+            closePanel(); // (also brings a mini player back to full screen)
             return;
         }
-        if (isTv) { // TV: Back goes to the Ghar TV home page (channels, settings, get from phone)
-            openBrowser();
+        if (isTv && !watchPage) { // TV: Back shrinks the channel to the corner and opens the channel list
+            enterMini();
             return;
         }
         handler.removeCallbacksAndMessages(null);
@@ -1086,7 +1090,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         Session.channelStarted(this, c, category);
 
         showNowPlaying(c);
-        showInfo();
+        if (!mini) showInfo();
+        updateMiniLabel();
         spinner.setVisibility(View.VISIBLE);
 
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
@@ -1233,6 +1238,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     private void applyScreenMode(boolean announce) {
         if (screenMode < 0 || screenMode >= RESIZE_MODES.length) screenMode = 0;
+        if (mini) return; // the mini player keeps its own size; applied again when it grows back
         View area = findViewById(R.id.video_area);
         int w = ViewGroup.LayoutParams.MATCH_PARENT;
         int h = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -1477,6 +1483,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     }
 
     private void showInfo() {
+        if (mini) return; // the small picture has its own label
         handler.removeCallbacks(hideInfo);
         for (View v : new View[]{info, topBar}) {
             v.animate().cancel();
@@ -1525,8 +1532,149 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         });
     }
 
+    // ============================================================ mini player
+
+    private boolean mini;
+    private android.animation.ValueAnimator miniAnim;
+    private View miniFrame;
+    private TextView miniLabel;
+
+    /** Shrink the playing channel into the bottom-right corner and open the channel list. */
+    private void enterMini() {
+        if (mini || player == null) return;
+        mini = true;
+        hideInfoNow();
+        ensureMiniViews();
+        android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerView.getLayoutParams();
+        int aw = videoArea.getWidth();
+        int ah = videoArea.getHeight();
+        float d = getResources().getDisplayMetrics().density;
+        int margin = Math.round(36 * d);
+        int panelW = getResources().getDimensionPixelSize(R.dimen.panel_width);
+        int targetW = Math.min(Math.round(aw * 0.34f), aw - panelW - 2 * margin);
+        int targetH = Math.round(targetW * 9f / 16f);
+        int startW = lp.width > 0 ? lp.width : aw;
+        int startH = lp.height > 0 ? lp.height : ah;
+        int startEnd = (aw - startW) / 2;
+        int startBottom = (ah - startH) / 2;
+        lp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+        // the panel's dark veil would hide the small picture: let the black background show instead
+        findViewById(R.id.panel_scrim).setAlpha(0f);
+        openPanel();
+        animateVideo(startW, startH, startEnd, startBottom, targetW, targetH, margin, margin, () -> {
+            placeMiniDecor(targetW, targetH, margin);
+            miniFrame.setVisibility(View.VISIBLE);
+            miniLabel.setVisibility(View.VISIBLE);
+            miniFrame.setAlpha(0f);
+            miniLabel.setAlpha(0f);
+            miniFrame.animate().alpha(1f).setDuration(180).start();
+            miniLabel.animate().alpha(1f).setDuration(180).start();
+        });
+        updateMiniLabel();
+    }
+
+    /** Back to full screen (Back again, or a channel was picked). */
+    private void exitMini() {
+        if (!mini) return;
+        mini = false;
+        if (miniFrame != null) {
+            miniFrame.setVisibility(View.GONE);
+            miniLabel.setVisibility(View.GONE);
+        }
+        findViewById(R.id.panel_scrim).setAlpha(1f);
+        android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerView.getLayoutParams();
+        int aw = videoArea.getWidth();
+        int ah = videoArea.getHeight();
+        animateVideo(lp.width, lp.height, lp.rightMargin, lp.bottomMargin, aw, ah, 0, 0, () -> {
+            android.widget.FrameLayout.LayoutParams full = (android.widget.FrameLayout.LayoutParams) playerView.getLayoutParams();
+            full.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            full.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            full.gravity = android.view.Gravity.CENTER;
+            full.rightMargin = 0;
+            full.bottomMargin = 0;
+            playerView.setLayoutParams(full);
+            applyScreenMode(false); // 16:9 / 4:3 boxes come back
+            showInfo();
+        });
+    }
+
+    /** Resize the video by its layout (works with the TV's video surface, unlike scaling). */
+    private void animateVideo(int w0, int h0, int e0, int b0, int w1, int h1, int e1, int b1, Runnable done) {
+        if (miniAnim != null) miniAnim.cancel();
+        miniAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        miniAnim.setDuration(260);
+        miniAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f));
+        miniAnim.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerView.getLayoutParams();
+            lp.width = Math.round(w0 + (w1 - w0) * f);
+            lp.height = Math.round(h0 + (h1 - h0) * f);
+            lp.rightMargin = Math.round(e0 + (e1 - e0) * f);
+            lp.bottomMargin = Math.round(b0 + (b1 - b0) * f);
+            playerView.setLayoutParams(lp);
+        });
+        miniAnim.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean cancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                cancelled = true;
+            }
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (!cancelled && done != null) done.run();
+            }
+        });
+        miniAnim.start();
+    }
+
+    /** A thin outline around the small picture, and "Now playing" above it. */
+    private void ensureMiniViews() {
+        if (miniFrame != null) return;
+        android.widget.FrameLayout area = (android.widget.FrameLayout) videoArea;
+        miniFrame = new View(this);
+        android.graphics.drawable.GradientDrawable outline = new android.graphics.drawable.GradientDrawable();
+        outline.setColor(0x00000000);
+        float d = getResources().getDisplayMetrics().density;
+        outline.setStroke(Math.round(3 * d), 0xFFE50914);
+        outline.setCornerRadius(6 * d);
+        miniFrame.setBackground(outline);
+        miniFrame.setVisibility(View.GONE);
+        area.addView(miniFrame);
+        miniLabel = new TextView(this);
+        miniLabel.setTextColor(0xFFFFFFFF);
+        miniLabel.setTextSize(15);
+        miniLabel.setShadowLayer(6, 0, 1, 0xCC000000);
+        miniLabel.setLineSpacing(0, 1.15f);
+        miniLabel.setVisibility(View.GONE);
+        area.addView(miniLabel);
+    }
+
+    private void placeMiniDecor(int w, int h, int margin) {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = Math.round(4 * d);
+        android.widget.FrameLayout.LayoutParams fp = new android.widget.FrameLayout.LayoutParams(w + 2 * pad, h + 2 * pad,
+                android.view.Gravity.BOTTOM | android.view.Gravity.END);
+        fp.rightMargin = margin - pad;
+        fp.bottomMargin = margin - pad;
+        miniFrame.setLayoutParams(fp);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(w,
+                ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM | android.view.Gravity.END);
+        lp.rightMargin = margin;
+        lp.bottomMargin = margin + h + Math.round(14 * d);
+        miniLabel.setLayoutParams(lp);
+    }
+
+    private void updateMiniLabel() {
+        if (miniLabel == null) return;
+        Channel c = current();
+        miniLabel.setText(getString(R.string.mini_label, c == null ? "" : c.name));
+    }
+
     private void closePanel() {
         if (panel.getVisibility() != View.VISIBLE) return;
+        if (mini) exitMini();
         panel.setVisibility(View.GONE);
         handler.removeCallbacks(selectPanelCategory);
         if (!isTv) hideSystemBars();

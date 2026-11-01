@@ -175,3 +175,9 @@ Copy favourites and playlists from **Ghar TV Mobile** to the TV over your home W
 
 The TV only adds: favourites are added to yours, and a playlist with the same name gets the new channels.
 It only listens while that screen is open, only accepts the code on screen, and closes after 5 wrong codes.
+
+## Mini player (2.9)
+
+While watching on the TV, **Back** shrinks the channel into the bottom-right corner (still playing) and opens the
+channel list beside it, like YouTube. Pick a channel to watch it full screen, or press **Back** again to return.
+**All channels** in the list goes to the home page (settings, Get favourites from phone).

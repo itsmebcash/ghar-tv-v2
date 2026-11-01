@@ -123,4 +123,5 @@
     <string name="option_about">About Ghar TV</string>
     <string name="about_text">Version %1$s\n\nFree live TV from around the world for your Android TV. Ghar TV checks the public iptv-org channel list and shows only the channels that actually work, with categories, favourites, playlists and search.\n\nConcept by Bikash Sharma, Imprintfy Tech.\n\nChannels: iptv-org.github.io</string>
     <string name="back_again_to_exit">Press Back again to leave Ghar TV</string>
+    <string name="mini_label">NOW PLAYING\n%1$s\nBack: full screen  ·  OK on a channel: watch it</string>
 </resources>
