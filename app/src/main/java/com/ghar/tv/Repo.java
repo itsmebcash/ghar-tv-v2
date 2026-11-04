@@ -38,6 +38,8 @@ final class Repo {
     /** Search results: "q:" + what you typed. */
     static final String SEARCH = "q:";
     static final String ALL = "All";
+    /** About 140 popular channels, numbered in a fixed order (see Popular). */
+    static final String FOR_YOU = "For You";
     static final String FAVOURITES = "Favourites";
     /**
      * The 6 categories (same as Ghar TV Mobile). Local is Nepal + India (by country); the other five
@@ -69,7 +71,8 @@ final class Repo {
 
     /** A category saved by an older version ("Nepal", "Movies"...) becomes its new category. */
     static String normalize(String key) {
-        if (key == null) return ALL;
+        if (key == null) return FOR_YOU;
+        if (FOR_YOU.equals(key)) return key;
         if ("Nepal".equals(key) || "India".equals(key)) return LOCAL;
         for (String k : CATEGORIES) if (k.equals(key)) return key;
         if (key.equals(RECENT) || key.equals(ALL) || key.equals(FAVOURITES) || key.startsWith(PLAYLIST)
@@ -223,12 +226,17 @@ final class Repo {
         working.clear();
         workingUrls.clear();
         passed.clear();
+        // Order: channels that worked last time, then the popular (For You) ones, then the rest.
+        Set<String> popular = Popular.urls(all);
         List<Channel> order = new ArrayList<>();
+        List<Channel> pop = new ArrayList<>();
         List<Channel> rest = new ArrayList<>();
         for (Channel c : all) {
             if (previouslyWorking.contains(c.url)) order.add(c);
+            else if (popular.contains(c.url)) pop.add(c);
             else rest.add(c);
         }
+        order.addAll(pop);
         order.addAll(rest);
         notifyChanged();
         startScan(order);
@@ -410,11 +418,14 @@ final class Repo {
     static List<String> categoryNames(Context c) {
         List<String> names = new ArrayList<>();
         names.add(SEARCH_ROW);
+        names.add(FOR_YOU);
         names.add(RECENT);
         names.add(FAVOURITES);
         for (Store.UserPlaylist p : Store.playlists(c)) names.add(PLAYLIST + p.id);
         names.add(NEW_PLAYLIST);
-        for (String n : categoryNames()) if (!n.equals(RECENT) && !n.equals(FAVOURITES)) names.add(n);
+        for (String n : categoryNames()) {
+            if (!n.equals(RECENT) && !n.equals(FAVOURITES) && !n.equals(FOR_YOU)) names.add(n);
+        }
         return names;
     }
 
@@ -445,6 +456,7 @@ final class Repo {
 
     static List<String> categoryNames() {
         List<String> names = new ArrayList<>();
+        names.add(FOR_YOU);
         names.add(RECENT);
         names.add(ALL);
         names.add(FAVOURITES);
@@ -455,6 +467,7 @@ final class Repo {
     static boolean matches(Channel c, String category, Set<String> favourites) {
         switch (category) {
             case ALL:
+            case FOR_YOU:
                 return true;
             case FAVOURITES:
                 return favourites.contains(c.url);
@@ -467,6 +480,10 @@ final class Repo {
     }
 
     List<Channel> channels(String category, Set<String> favourites) {
+        if (FOR_YOU.equals(category)) {
+            List<Channel> popular = Popular.channels(working);
+            return popular.isEmpty() ? new ArrayList<>(working) : popular; // until the check finds some
+        }
         if (RECENT.equals(category)) return recent();
         if (isAction(category)) return new ArrayList<>();
         if (isSearch(category)) return search(category.substring(SEARCH.length()));
@@ -477,6 +494,10 @@ final class Repo {
     }
 
     int count(String category, Set<String> favourites) {
+        if (FOR_YOU.equals(category)) {
+            int n = Popular.channels(working).size();
+            return n == 0 ? working.size() : n;
+        }
         if (RECENT.equals(category)) return Session.recent(app).size();
         if (isAction(category)) return 0;
         if (isSearch(category)) return search(category.substring(SEARCH.length())).size();

@@ -9,14 +9,14 @@ def useGharKey = gharKeystore != null && new File(gharKeystore).exists()
 
 android {
     namespace 'com.ghar.tv'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.ghar.tv'
         minSdk 21
         targetSdk 34
-        versionCode 16
-        versionName '2.9'
+        versionCode 17
+        versionName '3.0'
     }
 
     signingConfigs {
@@ -53,8 +53,12 @@ android {
 
 dependencies {
     // Google's Media3 (ExoPlayer): the standard player for live HLS streams on Android TV
-    def media3 = '1.4.1'
+    def media3 = '1.5.0'
     implementation "androidx.media3:media3-exoplayer:$media3"
     implementation "androidx.media3:media3-exoplayer-hls:$media3"
     implementation "androidx.media3:media3-ui:$media3"
+    // Faster connections (reused, HTTP/2) for the streams
+    implementation "androidx.media3:media3-datasource-okhttp:$media3"
+    // Sound formats the TV can't decode itself (MP2, AC-3, E-AC-3, DTS) - FFmpeg build by Jellyfin
+    implementation 'org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1'
 }

@@ -40,7 +40,7 @@ public class MainActivity extends Activity implements Repo.Listener {
     private final List<Channel> shown = new ArrayList<>();
     private Set<String> favourites = new HashSet<>();
 
-    private String category = Repo.ALL;
+    private String category = Repo.FOR_YOU;
     private final List<String> categoryNames = new ArrayList<>();
     private Taps taps;
     private final List<View> categoryRows = new ArrayList<>();
@@ -69,6 +69,7 @@ public class MainActivity extends Activity implements Repo.Listener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashGuard.install(this);
         browseMode = getIntent().getBooleanExtra(EXTRA_BROWSE, false);
 
         // App launch with a saved session: go straight back to the last channel.
@@ -87,7 +88,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         favourites = Store.favourites(this);
         category = Session.category(this);
         categoryNames.addAll(Repo.categoryNames(this));
-        if (!categoryNames.contains(category) || Repo.isAction(category)) category = Repo.ALL;
+        if (!categoryNames.contains(category) || Repo.isAction(category)) category = Repo.FOR_YOU;
         taps = new Taps(Device.isTv(this));
         if (!Device.isTv(this)) ((TextView) findViewById(R.id.hint)).setText(R.string.hint_phone);
 
@@ -173,7 +174,7 @@ public class MainActivity extends Activity implements Repo.Listener {
         if (!names.equals(categoryNames)) {
             categoryNames.clear();
             categoryNames.addAll(names);
-            if (!categoryNames.contains(category)) category = Repo.ALL;
+            if (!categoryNames.contains(category)) category = Repo.FOR_YOU;
             buildCategories();
         }
         updateCategoryCounts();
@@ -289,6 +290,7 @@ public class MainActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_from_phone),
                 getString(R.string.option_screen, modes[mode]),
                 getString(R.string.option_rescan),
+                getString(R.string.option_volume, getString(Store.evenVolume(this) ? R.string.on : R.string.off)),
                 getString(R.string.option_about),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -301,7 +303,10 @@ public class MainActivity extends Activity implements Repo.Listener {
                         Store.setScreenMode(this, next);
                         toast(getString(R.string.screen_mode, modes[next]));
                     } else if (w == 3) confirmRescan();
-                    else showAbout(this);
+                    else if (w == 4) {
+                        Store.setEvenVolume(this, !Store.evenVolume(this));
+                        toast(getString(Store.evenVolume(this) ? R.string.volume_on : R.string.volume_off));
+                    } else showAbout(this);
                 })
                 .show();
     }

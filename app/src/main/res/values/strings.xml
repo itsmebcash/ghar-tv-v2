@@ -124,4 +124,20 @@
     <string name="about_text">Version %1$s\n\nFree live TV from around the world for your Android TV. Ghar TV checks the public iptv-org channel list and shows only the channels that actually work, with categories, favourites, playlists and search.\n\nConcept by Bikash Sharma, Imprintfy Tech.\n\nChannels: iptv-org.github.io</string>
     <string name="back_again_to_exit">Press Back again to leave Ghar TV</string>
     <string name="mini_label">NOW PLAYING\n%1$s\nBack: full screen  ·  OK on a channel: watch it</string>
+    <!-- 3.0 -->
+    <string name="try_again">Try again</string>
+    <string name="failed_status">%1$s didn\'t load (%2$s)\nOK: try again  ·  ▲ ▼: other channels</string>
+    <string name="err_crashed">it closed the app last time</string>
+    <string name="sound_none">This channel sends no sound</string>
+    <string name="sound_unsupported">This channel\'s sound format can\'t play on this TV</string>
+    <string name="no_channel_number">No channel %1$d here: this list has %2$d channels</string>
+    <string name="crash_title">Sorry, Ghar TV closed</string>
+    <string name="crash_message">The channel that was opening won\'t start by itself any more: press OK on it to try again. You can send the problem report so it can be fixed.</string>
+    <string name="crash_share">Send problem report</string>
+    <string name="crash_no_share">No app here can send the report</string>
+    <string name="option_volume">Even out volume: %1$s</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="volume_on">Even volume on: quiet channels up, loud ones down</string>
+    <string name="volume_off">Even volume off</string>
 </resources>

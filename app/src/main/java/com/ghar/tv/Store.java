@@ -95,6 +95,43 @@ final class Store {
     // ---------------------------------------------------------- screen mode
 
     /** 0 = Fit (whole picture), 1 = Fill (zoom, no black bars), 2 = Stretch (full screen). */
+    /** Even out the volume between loud and quiet channels. */
+    static boolean evenVolume(Context c) {
+        return prefs(c).getBoolean("even_volume", true);
+    }
+
+    static void setEvenVolume(Context c, boolean on) {
+        prefs(c).edit().putBoolean("even_volume", on).apply();
+    }
+
+    /** The volume adjustment (dB) a channel settled on last time, or NaN. */
+    static double channelLevel(Context c, String url) {
+        float v = c.getSharedPreferences("ghar_levels", Context.MODE_PRIVATE).getFloat(url, Float.NaN);
+        return Float.isNaN(v) ? Double.NaN : v;
+    }
+
+    static void setChannelLevel(Context c, String url, double db) {
+        c.getSharedPreferences("ghar_levels", Context.MODE_PRIVATE).edit()
+                .putFloat(url, (float) (Math.round(db * 10) / 10.0)).apply();
+    }
+
+    /** Channels that were opening when the app closed unexpectedly: they wait for OK. */
+    static java.util.Set<String> crashChannels(Context c) {
+        return new java.util.HashSet<>(prefs(c).getStringSet("crash_channels", new java.util.HashSet<String>()));
+    }
+
+    static void setCrashChannels(Context c, java.util.Set<String> urls) {
+        prefs(c).edit().putStringSet("crash_channels", new java.util.HashSet<>(urls)).commit();
+    }
+
+    static boolean crashPending(Context c) {
+        return prefs(c).getBoolean("crash_pending", false);
+    }
+
+    static void setCrashPending(Context c, boolean on) {
+        prefs(c).edit().putBoolean("crash_pending", on).commit();
+    }
+
     static int screenMode(Context c) {
         return prefs(c).getInt("screen_mode", 0);
     }

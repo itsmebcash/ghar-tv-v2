@@ -188,7 +188,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     /** Didn't start in time: skip it, unless we're simply offline. */
     private final Runnable startTimeout = () -> {
         if (!Device.isOnline(this)) waitForNetwork();
-        else skip(getString(R.string.skip_slow));
+        else failed(getString(R.string.skip_slow));
     };
     private final Runnable hideInfo = this::hideInfoNow;
     private final Runnable hideMessage = () -> message.setVisibility(View.GONE);
@@ -228,6 +228,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashGuard.install(this);
         isTv = Device.isTv(this);
         repo = Repo.get(this);
         if (pendingQueue != null && !pendingQueue.isEmpty()) {
@@ -250,7 +251,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             restoring = true;
         }
         categoryNames.addAll(Repo.categoryNames(this));
-        if ((!categoryNames.contains(category) && !Repo.isSearch(category)) || Repo.isAction(category)) category = Repo.ALL;
+        if ((!categoryNames.contains(category) && !Repo.isSearch(category)) || Repo.isAction(category)) category = Repo.FOR_YOU;
         taps = new Taps(isTv);
         pendingQueue = null;
         pendingCategory = null;
@@ -287,6 +288,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         onRepoChanged();
         applyPageLayout();
         play(index);
+        handler.postDelayed(this::explainCrashIfAny, 1500);
     }
 
     private void findViews() {
@@ -297,6 +299,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         infoTexts = findViewById(R.id.info_texts);
         topBar = findViewById(R.id.top_bar);
         number = findViewById(R.id.number);
+        refreshButton = findViewById(R.id.refresh);
+        numberEntry = findViewById(R.id.number_entry);
+        refreshButton.setOnClickListener(v -> tryAgain()); // touch screens
         name = findViewById(R.id.channel_name);
         sub = findViewById(R.id.channel_sub);
         logo = findViewById(R.id.channel_logo);
@@ -390,8 +395,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         if (!names.equals(categoryNames)) {
             categoryNames.clear();
             categoryNames.addAll(names);
-            if (!categoryNames.contains(browseCategory)) browseCategory = Repo.ALL;
-            if (!categoryNames.contains(category)) category = Repo.ALL;
+            if (!categoryNames.contains(browseCategory)) browseCategory = Repo.FOR_YOU;
+            if (!categoryNames.contains(category)) category = Repo.FOR_YOU;
             buildCategoryViews();
             markBrowseCategory();
         }
@@ -459,8 +464,22 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         DefaultBandwidthMeter bandwidth = new DefaultBandwidthMeter.Builder(this)
                 .setInitialBitrateEstimate(800_000)
                 .build();
-        DefaultRenderersFactory renderers = new DefaultRenderersFactory(this)
-                .setEnableDecoderFallback(true);
+        leveller = new Leveller(); // evens out loud and quiet channels
+        leveller.setEnabled(Store.evenVolume(this));
+        Leveller lev = leveller;
+        DefaultRenderersFactory renderers = new DefaultRenderersFactory(this) {
+            @Override
+            protected androidx.media3.exoplayer.audio.AudioSink buildAudioSink(android.content.Context context,
+                    boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+                return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(false) // the leveller works on 16-bit sound
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[]{lev})
+                        .build();
+            }
+        }.setEnableDecoderFallback(true)
+                // sound formats the TV can't play itself (MP2, AC-3 / Dolby, E-AC-3, DTS): FFmpeg decodes them
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
         return new ExoPlayer.Builder(this, renderers)
                 .setLoadControl(loadControl)
                 .setBandwidthMeter(bandwidth)
@@ -511,8 +530,130 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
         @Override
         public void onPlayerError(PlaybackException error) {
-            handlePlaybackError(error);
+            try {
+                handlePlaybackError(error);
+            } catch (RuntimeException ex) {
+                CrashGuard.note(PlayerActivity.this, ex);
+            }
         }
+
+        /** Picture but no sound: say why, once per channel. */
+        @Override
+        public void onTracksChanged(androidx.media3.common.Tracks tracks) {
+            if (toldNoSound || !tracks.containsType(androidx.media3.common.C.TRACK_TYPE_VIDEO)) return;
+            boolean hasAudio = tracks.containsType(androidx.media3.common.C.TRACK_TYPE_AUDIO);
+            if (hasAudio && tracks.isTypeSupported(androidx.media3.common.C.TRACK_TYPE_AUDIO)) return;
+            toldNoSound = true;
+            showMessage(getString(hasAudio ? R.string.sound_unsupported : R.string.sound_none));
+        }
+    }
+
+    // ======================================================= Ghar TV 3.0 additions
+
+    private ImageView refreshButton;
+    private TextView numberEntry;
+    private Leveller leveller;
+    private String levelUrl;
+    private boolean failedNow;
+    private boolean toldNoSound;
+    private final java.util.Set<String> allowOnce = new java.util.HashSet<>();
+    private final StringBuilder typed = new StringBuilder();
+
+    /** The volume level this channel settled on, for next time. */
+    private void rememberLevel() {
+        if (leveller == null || levelUrl == null) return;
+        double g = leveller.gainDb();
+        if (!Double.isNaN(g)) Store.setChannelLevel(this, levelUrl, g);
+    }
+
+    /** The channel didn't load: stay on it with a refresh button (OK tries again, Up / Down move on). */
+    private void failed(String reason) {
+        handler.removeCallbacks(startTimeout);
+        handler.removeCallbacks(showJoke);
+        hideJoke();
+        failedNow = true;
+        spinner.setVisibility(View.GONE);
+        refreshButton.setVisibility(View.VISIBLE);
+        Channel c = current();
+        showStatus(getString(R.string.failed_status, c == null ? "" : c.name, reason));
+        showInfo();
+    }
+
+    private void hideFailed() {
+        failedNow = false;
+        if (refreshButton != null) refreshButton.setVisibility(View.GONE);
+    }
+
+    private void tryAgain() {
+        Channel c = current();
+        if (c == null) return;
+        java.util.Set<String> crashed = Store.crashChannels(this);
+        if (crashed.remove(c.url)) Store.setCrashChannels(this, crashed); // you asked for it
+        allowOnce.add(c.url);
+        refreshButton.animate().rotationBy(360f).setDuration(500).start();
+        restartStream();
+    }
+
+    private static int digitOf(int keyCode) {
+        if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) return keyCode - KeyEvent.KEYCODE_0;
+        if (keyCode >= KeyEvent.KEYCODE_NUMPAD_0 && keyCode <= KeyEvent.KEYCODE_NUMPAD_9) {
+            return keyCode - KeyEvent.KEYCODE_NUMPAD_0;
+        }
+        return -1;
+    }
+
+    private final Runnable jumpToTyped = this::jumpToTyped;
+
+    /** Channel numbers: each channel's place in the list you're watching (For You keeps a fixed order). */
+    private void typeDigit(int d) {
+        typed.append(d);
+        numberEntry.setText(typed.length() < 3 ? typed + "–" : typed.toString());
+        numberEntry.setVisibility(View.VISIBLE);
+        handler.removeCallbacks(jumpToTyped);
+        if (typed.length() >= 3) handler.postDelayed(jumpToTyped, 300);
+        else handler.postDelayed(jumpToTyped, 1600);
+    }
+
+    private void jumpToTyped() {
+        handler.removeCallbacks(jumpToTyped);
+        String t = typed.toString();
+        typed.setLength(0);
+        numberEntry.setVisibility(View.GONE);
+        if (t.isEmpty()) return;
+        int n = Integer.parseInt(t);
+        if (n < 1 || n > queue.size()) {
+            showMessage(getString(R.string.no_channel_number, n, queue.size()));
+            return;
+        }
+        if (n - 1 == index) {
+            showInfo();
+            return;
+        }
+        direction = n - 1 > index ? 1 : -1;
+        play(n - 1);
+    }
+
+    /** After an unexpected close: say what happened, and offer the report. */
+    private void explainCrashIfAny() {
+        if (!Store.crashPending(this)) return;
+        Store.setCrashPending(this, false);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.crash_title)
+                .setMessage(R.string.crash_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .setNeutralButton(R.string.crash_share, (d, w) -> {
+                    String report = CrashGuard.report(this);
+                    if (report == null) return;
+                    Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, "Ghar TV problem report")
+                            .putExtra(Intent.EXTRA_TEXT, report);
+                    try {
+                        startActivity(Intent.createChooser(send, getString(R.string.crash_share)));
+                    } catch (Exception e) {
+                        showMessage(getString(R.string.crash_no_share));
+                    }
+                })
+                .show();
     }
 
     // =============================================================== lifecycle
@@ -563,6 +704,8 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     }
 
     private void releasePlayer() {
+        rememberLevel();
+        CrashGuard.clearOpening();
         if (player != null) {
             player.stop();
             player.release();
@@ -851,6 +994,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             return true;
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN && !isPanelOpen()) {
+            int digit = digitOf(event.getKeyCode());
+            if (digit >= 0 && event.getRepeatCount() == 0 && (digit > 0 || typed.length() > 0)) {
+                typeDigit(digit); // channel number: 1-0-5 jumps to channel 105 of this list
+                return true;
+            }
+            if (failedNow && event.getRepeatCount() == 0 && (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER
+                    || event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                tryAgain();
+                return true;
+            }
             if (event.getKeyCode() == KeyEvent.KEYCODE_LAST_CHANNEL || event.getKeyCode() == KeyEvent.KEYCODE_0) {
                 if (event.getRepeatCount() == 0) flipToPrevious();
                 return true;
@@ -1088,25 +1241,28 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         handler.removeCallbacks(retry);
         handler.removeCallbacks(networkWatch);
         Session.channelStarted(this, c, category);
+        rememberLevel();
+        levelUrl = c.url;
+        leveller.reset(Store.channelLevel(this, c.url));
+        hideFailed();
+        toldNoSound = false;
 
         showNowPlaying(c);
         if (!mini) showInfo();
         updateMiniLabel();
         spinner.setVisibility(View.VISIBLE);
 
-        DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
-                .setUserAgent(c.userAgent != null ? c.userAgent : Net.DEFAULT_UA)
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(8000)
-                .setReadTimeoutMs(8000);
-        if (c.referrer != null) {
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Referer", c.referrer);
-            http.setDefaultRequestProperties(headers);
+        if (Store.crashChannels(this).contains(c.url) && !allowOnce.contains(c.url)) {
+            // this channel was opening when the app closed last time: wait for OK
+            player.stop();
+            CrashGuard.clearOpening();
+            handler.removeCallbacks(startTimeout);
+            failed(getString(R.string.err_crashed));
+            return;
         }
-        MediaItem.Builder item = new MediaItem.Builder().setUri(c.url);
-        if (c.hls) item.setMimeType(MimeTypes.APPLICATION_M3U8);
-        MediaSource source = new DefaultMediaSourceFactory(http).createMediaSource(item.build());
+        MediaSource source = Streams.source(c);
+        CrashGuard.clearOpening();
+        CrashGuard.opening(c.url, true);
 
         player.stop();
         clearSubtitleOverride();
@@ -1202,7 +1358,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             handler.postDelayed(retry, 1500L * reconnects);
             return;
         }
-        skip(getString(R.string.skip_error));
+        failed(getString(R.string.skip_error));
     }
 
     /** Offline: never skip channels; wait and continue once the internet is back. */
@@ -1368,6 +1524,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_previous, prev != null ? prev.name : "–"),
                 getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
                 getString(R.string.option_sleep, sleepLabel()),
+                getString(R.string.option_volume, getString(Store.evenVolume(this) ? R.string.on : R.string.off)),
                 getString(R.string.option_subtitles),
                 getString(R.string.menu_add_to_playlist),
                 getString(R.string.option_from_phone),
@@ -1382,10 +1539,16 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                     else if (w == 2) flipToPrevious();
                     else if (w == 3) cycleScreenMode();
                     else if (w == 4) chooseSleepTimer();
-                    else if (w == 5) chooseSubtitles();
-                    else if (w == 6) Menus.addToPlaylist(this, c, this::channelsChanged);
-                    else if (w == 7) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
-                    else if (w == 8) rescan();
+                    else if (w == 5) {
+                        boolean on = !Store.evenVolume(this);
+                        Store.setEvenVolume(this, on);
+                        if (leveller != null) leveller.setEnabled(on);
+                        showMessage(getString(on ? R.string.volume_on : R.string.volume_off));
+                    }
+                    else if (w == 6) chooseSubtitles();
+                    else if (w == 7) Menus.addToPlaylist(this, c, this::channelsChanged);
+                    else if (w == 8) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
+                    else if (w == 9) rescan();
                     else MainActivity.showAbout(this);
                 })
                 .show();

@@ -29,6 +29,37 @@
             android:layout_gravity="center"
             android:indeterminateTint="#FFFFFF" />
 
+        <!-- The channel didn't load: OK tries it again (no more skipping) -->
+        <ImageView
+            android:id="@+id/refresh"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_gravity="center"
+            android:background="@drawable/refresh_bg"
+            android:contentDescription="@string/try_again"
+            android:padding="18dp"
+            android:src="@drawable/ic_refresh"
+            android:visibility="gone" />
+
+        <!-- Typing a channel number on the remote -->
+        <TextView
+            android:id="@+id/number_entry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="28dp"
+            android:layout_marginEnd="36dp"
+            android:background="@drawable/number_bg"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="0.1"
+            android:paddingStart="22dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="22dp"
+            android:paddingBottom="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="44sp"
+            android:visibility="gone" />
+
         <!-- Connecting / Buffering / Reconnecting / No internet -->
         <TextView
             android:id="@+id/status_text"
