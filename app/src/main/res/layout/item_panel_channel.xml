@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="66dp"
+    android:layout_height="74dp"
     android:background="@drawable/panel_row"
     android:gravity="center_vertical"
     android:orientation="horizontal"
@@ -15,12 +15,12 @@
         android:duplicateParentState="true"
         android:fontFamily="sans-serif-medium"
         android:textColor="@color/panel_number"
-        android:textSize="14sp" />
+        android:textSize="15sp" />
 
     <ImageView
         android:id="@+id/row_logo"
-        android:layout_width="68dp"
-        android:layout_height="42dp"
+        android:layout_width="76dp"
+        android:layout_height="46dp"
         android:background="@drawable/logo_bg"
         android:importantForAccessibility="no"
         android:padding="5dp"
@@ -41,7 +41,7 @@
             android:fontFamily="sans-serif-medium"
             android:singleLine="true"
             android:textColor="#FFFFFF"
-            android:textSize="16sp" />
+            android:textSize="17sp" />
 
         <TextView
             android:id="@+id/row_sub"
@@ -51,7 +51,7 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:textColor="#8CFFFFFF"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
     </LinearLayout>
 
     <!-- Saved to Favourites -->

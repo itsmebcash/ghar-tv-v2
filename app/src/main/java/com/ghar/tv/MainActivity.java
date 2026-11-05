@@ -475,6 +475,10 @@ public class MainActivity extends Activity implements Repo.Listener {
                     : LayoutInflater.from(MainActivity.this).inflate(R.layout.item_channel, parent, false);
             Channel c = getItem(position);
             ((TextView) tile.findViewById(R.id.name)).setText(c.name);
+            TextView number = tile.findViewById(R.id.number);
+            boolean numbered = Repo.FOR_YOU.equals(category);
+            number.setVisibility(numbered ? View.VISIBLE : View.GONE);
+            if (numbered) number.setText(String.valueOf(position + 1));
             tile.findViewById(R.id.fav_badge).setVisibility(favourites.contains(c.url) ? View.VISIBLE : View.GONE);
             ((TextView) tile.findViewById(R.id.sub)).setText(c.subtitle());
             TextView initials = tile.findViewById(R.id.initials);

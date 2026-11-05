@@ -13,12 +13,31 @@
         android:background="@drawable/channel_card"
         android:duplicateParentState="true"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:padding="9dp">
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="80dp"
+            android:layout_height="88dp"
             android:background="@drawable/logo_bg">
+
+            <!-- Channel number (For You), so the remote's 1-2-3 matches the grid -->
+            <TextView
+                android:id="@+id/number"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="5dp"
+                android:background="@drawable/number_bg"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:minWidth="28dp"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
 
             <!-- Shown until (or instead of) the logo -->
             <TextView
@@ -28,7 +47,7 @@
                 android:fontFamily="sans-serif-light"
                 android:gravity="center"
                 android:textColor="#66111111"
-                android:textSize="26sp" />
+                android:textSize="28sp" />
 
             <ImageView
                 android:id="@+id/logo"
@@ -61,7 +80,7 @@
             android:fontFamily="sans-serif-medium"
             android:singleLine="true"
             android:textColor="@color/on_light"
-            android:textSize="13sp" />
+            android:textSize="15sp" />
 
         <TextView
             android:id="@+id/sub"
@@ -72,6 +91,6 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:textColor="@color/on_light_dim"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

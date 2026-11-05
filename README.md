@@ -1,20 +1,28 @@
-# Ghar TV 2.0 — free live TV for Android TV and phones, only channels that actually work
+# Ghar TV 3.1 — free live TV for Android TV and phones, only channels that actually work
 
-Plays the public [iptv-org](https://github.com/iptv-org/iptv) playlist
-(`https://iptv-org.github.io/iptv/index.m3u`), but **tests every channel first**:
+**For You** is a curated list built into the app: about 170 well-known channels (Kantipur TV,
+Zee News, NDTV, Zee Cinema's Indian movie channels, HBO Asia, National Geographic, Discovery,
+Cartoon Network, the big international news channels and more), in a fixed order with channel
+numbers. Every one of them was tested from Kathmandu before it was added, so the list is the
+same on your TV and no channel in it is dead at release.
+
+Under that, the app plays the public [iptv-org](https://github.com/iptv-org/iptv) playlist
+(`https://iptv-org.github.io/iptv/index.m3u`) and **tests every channel before showing it**:
 
 1. Downloads the stream's playlist,
 2. follows it to the first quality level,
 3. downloads the start of a real video segment —
 
-all within **6 seconds**. Anything broken, geo-blocked or slow is never shown.
-Working channels appear on screen as soon as they pass (Nepal first, then India,
-then the world). **The scan runs once:** results are saved on the TV and reused every
-time, so the app opens instantly. It never rescans on its own — only when you press
-**Rescan** (it asks first). If the first scan is interrupted, it resumes where it stopped.
+all within **6 seconds**. Anything broken, geo-blocked, slow or DRM-protected is never shown.
+Curated channels are checked first, so **For You** fills up within a minute; the rest follow
+(Nepal first, then India, then the world). **The scan runs once:** results are saved on the TV
+and reused every time, so the app opens instantly. It never rescans on its own — only when you
+press **Rescan** (it asks first). If the first scan is interrupted, it resumes where it stopped.
 
 **Favourites** (hold OK on a channel) are saved permanently, survive app updates and
-rescans, and are never removed from your list if they fail once while watching.
+rescans, and are never removed from your list if they fail once while watching. If a channel
+comes back with a new address, the favourite follows the channel (by its stable id, then by
+name) instead of disappearing.
 
 **Opens where you left off.** The app starts straight into the last channel you watched
 (even after Android closed it in the background). **Back** while watching saves everything,
@@ -116,7 +124,8 @@ Rotation follows how you hold the phone unless you lock it; also remembered.
 4. Open **Ghar TV** from All Apps in Ghar Launcher (hold OK → Add to favourites to put it in the dock).
 
 The first full check of ~10,000 channels takes roughly 10–20 minutes, depending on your
-internet; you can start watching as soon as the first channels appear.
+internet; the built-in **For You** channels are tested first, so you can start watching
+within a minute.
 
 ## Install on a phone
 
@@ -181,3 +190,20 @@ It only listens while that screen is open, only accepts the code on screen, and 
 While watching on the TV, **Back** shrinks the channel into the bottom-right corner (still playing) and opens the
 channel list beside it, like YouTube. Pick a channel to watch it full screen, or press **Back** again to return.
 **All channels** in the list goes to the home page (settings, Get favourites from phone).
+
+## What's new in 3.1: a curated, verified channel list
+
+- **For You is now a real lineup**: ~170 popular channels (Nepal, India, world news,
+  documentary, movies, sport, kids, devotional) built into the app in a fixed order with
+  channel numbers. Each one was probed from Nepal before release — no dead entries.
+- **Every other list is curated too**: a category opens on the well-known curated channels
+  first, then the rest alphabetically; only channels that passed the check are listed.
+- **Favourites come back**: when a channel reappears under a new stream address, the saved
+  favourite is moved to the new address (stable id first, then name) instead of vanishing.
+- **Rescan no longer empties the screen**: a channel disappears only when its new check
+  actually fails, and the list stays usable while the check runs.
+- **Dead links are rejected properly**: DASH/DRM manifests are no longer counted as working.
+- **Bigger TV UI**: larger channel cards and logos, bigger category rows, wider channel
+  panel and larger text, plus channel numbers on the For You tiles.
+- **List merges** the built-in curated channels ahead of the iptv-org playlist (same
+  channel is never listed twice), and the app still starts offline from the built-in list.

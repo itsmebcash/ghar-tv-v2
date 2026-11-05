@@ -22,9 +22,15 @@ final class Probe {
             String body = new String(r.data, LATIN1).trim();
 
             if (!body.startsWith("#EXTM3U")) {
-                // Not HLS: a direct stream (MPEG-TS, MP4...). It sent data, so accept it.
+                // Not HLS: a direct stream (MPEG-TS, MP4...). It sent data, so accept it —
+                // but not a DASH manifest or a web page: the app cannot play either.
                 c.hls = false;
-                return r.data.length > 1024;
+                if (r.data.length <= 1024) return false;
+                String head = body.substring(0, Math.min(400, body.length())).toLowerCase(java.util.Locale.ROOT);
+                if (c.url.toLowerCase(java.util.Locale.ROOT).contains(".mpd")) return false;
+                if (head.startsWith("<?xml") || head.startsWith("<mpd") || head.startsWith("<!doctype")
+                        || head.startsWith("<html") || head.contains("<mpd")) return false;
+                return true;
             }
             c.hls = true;
 

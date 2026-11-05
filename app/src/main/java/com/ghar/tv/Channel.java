@@ -15,6 +15,7 @@ final class Channel {
     String tvgId = "";        // iptv-org channel id, e.g. "Kantipur.np@SD" (may be empty)
     final List<String> categories = new ArrayList<>();
     boolean hls;              // set by the health check: stream is an HLS (.m3u8) playlist
+    int rank;                 // 1, 2, 3… for the curated channels ("For You"), 0 for the rest
 
     /** For saving the last-watched / recent channels. */
     org.json.JSONObject toJson() throws org.json.JSONException {

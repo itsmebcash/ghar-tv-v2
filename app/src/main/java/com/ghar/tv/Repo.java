@@ -114,6 +114,7 @@ final class Repo {
 
     private Scanner scanner;
     private final ConcurrentLinkedQueue<Channel> passed = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Channel> failed = new ConcurrentLinkedQueue<>();
     private int ticks;
     private int visibleScreens;
     private boolean playbackActive;
@@ -192,6 +193,7 @@ final class Repo {
                 }
                 all = result;
                 loaded = true;
+                restoreFavourites();
                 // Saved results are reused forever, unless the last scan found nothing at all
                 // (e.g. the internet was down while it ran).
                 if (saved.hasResults() && !(saved.complete && saved.working.isEmpty())) {
@@ -205,6 +207,7 @@ final class Repo {
                     }
                     notifyChanged();
                     Snapshot.refreshAsync(app);
+                    refreshCuratedIfChanged();
                     if (visibleScreens > 0) resumeScanIfNeeded();
                     recheckFavouritesWeekly();
                 } else {
@@ -214,40 +217,125 @@ final class Repo {
         });
     }
 
+    /**
+     * Favourites are saved by stream address. When a channel comes back in a new list with a new
+     * address (the same channel, a new link), the saved favourite is moved over instead of
+     * silently disappearing. Matched by stable id first, then by exact name.
+     */
+    private void restoreFavourites() {
+        Set<String> favs = Store.favourites(app);
+        if (favs.isEmpty()) return;
+        Set<String> urls = new HashSet<>();
+        for (Channel c : all) urls.add(c.url);
+        boolean missing = false;
+        for (String u : favs) if (!urls.contains(u)) { missing = true; break; }
+        if (!missing) return;
+
+        java.util.Map<String, Snapshot.Entry> saved = new java.util.HashMap<>();
+        for (Snapshot.Entry e : Snapshot.read(app)) saved.put(e.url, e);
+        Set<String> fixed = new HashSet<>();
+        boolean changed = false;
+        for (String u : favs) {
+            if (urls.contains(u)) {
+                fixed.add(u);
+                continue;
+            }
+            Snapshot.Entry e = saved.get(u);
+            Channel match = e == null ? null : findByKey(e.id, e.name);
+            if (match != null) {
+                fixed.add(match.url);
+                changed = true;
+            } else {
+                fixed.add(u); // keep it: the weekly check may still bring it back
+            }
+        }
+        if (changed) {
+            Store.setFavourites(app, fixed);
+            Snapshot.refreshAsync(app);
+        }
+    }
+
+    private Channel findByKey(String id, String name) {
+        if (id != null && !id.isEmpty() && !id.startsWith("u-")) {
+            for (Channel c : all) if (id.equals(c.id())) return c;
+        }
+        if (name != null && !name.isEmpty()) {
+            String want = Popular.norm(name);
+            for (Channel c : all) if (Popular.norm(c.name).equals(want)) return c;
+        }
+        return null;
+    }
+
+    /**
+     * A new version ships a new curated list. Throw away the saved verdicts for those channels
+     * (they may have failed against an old address, or not been checked at all), so they are
+     * tested again instead of staying hidden behind an old result.
+     */
+    private void refreshCuratedIfChanged() {
+        String signature = Popular.signature(all);
+        String last = Store.curatedSignature(app);
+        if (signature.equals(last)) return;
+        Set<String> curated = Popular.urls(all);
+        synchronized (cache) {
+            for (String url : curated) {
+                cache.checked.remove(url);
+                cache.working.remove(url);
+                cache.okTime.remove(url);
+                dropWorking(url);
+            }
+            if (!cache.checked.isEmpty()) cache.complete = false;
+        }
+        Store.setCuratedSignature(app, signature);
+        saveAsync();
+        notifyChanged();
+    }
+
     /** Check every channel again; the ones that worked last time are checked first. */
     void fullRescan() {
         pauseScan();
+        // The list stays on screen while it is rechecked: a channel disappears only when the
+        // check actually fails, so a rescan never leaves you with an empty TV.
         Set<String> previouslyWorking;
         synchronized (cache) {
             previouslyWorking = new HashSet<>(cache.working.keySet());
         }
+        previouslyWorking.addAll(workingUrls);
         cache = new Store.ScanCache();
         cache.time = System.currentTimeMillis();
-        working.clear();
-        workingUrls.clear();
         passed.clear();
-        // Order: channels that worked last time, then the popular (For You) ones, then the rest.
+        failed.clear();
+        // Order: the curated (For You) channels first so that list fills quickly, then the ones
+        // that worked last time, then the rest.
         Set<String> popular = Popular.urls(all);
         List<Channel> order = new ArrayList<>();
         List<Channel> pop = new ArrayList<>();
         List<Channel> rest = new ArrayList<>();
         for (Channel c : all) {
-            if (previouslyWorking.contains(c.url)) order.add(c);
-            else if (popular.contains(c.url)) pop.add(c);
+            if (popular.contains(c.url)) pop.add(c);
+            else if (previouslyWorking.contains(c.url)) order.add(c);
             else rest.add(c);
         }
-        order.addAll(pop);
+        order.addAll(0, pop);
         order.addAll(rest);
+        Store.setCuratedSignature(app, Popular.signature(all));
         notifyChanged();
         startScan(order);
     }
 
     private void resumeScanIfNeeded() {
-        if (!loaded || scanning || cache.complete || cache.time == 0) return;
+        if (!loaded || scanning || cache.time == 0) return;
         List<Channel> rest = new ArrayList<>();
         synchronized (cache) {
             for (Channel c : all) if (!cache.checked.contains(c.url)) rest.add(c);
         }
+        if (rest.isEmpty()) {
+            if (!cache.complete) {
+                cache.complete = true;
+                saveAsync();
+            }
+            return;
+        }
+        cache.complete = false; // a new channel list arrived: there is work to do again
         startScan(rest);
     }
 
@@ -269,6 +357,7 @@ final class Repo {
                 }
                 checked.incrementAndGet();
                 if (ok) passed.add(c);
+                else failed.add(c);
             }
 
             @Override
@@ -282,7 +371,7 @@ final class Repo {
                     if (target != cache) return;
                     scanning = false;
                     scanner = null;
-                    drainPassed();
+                    drainResults();
                     notifyChanged();
                 });
             }
@@ -297,7 +386,7 @@ final class Repo {
         if (scanner != null) scanner.cancel();
         scanner = null;
         main.removeCallbacks(flush);
-        drainPassed();
+        drainResults();
         if (scanning) {
             scanning = false;
             saveAsync();
@@ -309,7 +398,7 @@ final class Repo {
     private final Runnable flush = new Runnable() {
         @Override
         public void run() {
-            boolean added = drainPassed();
+            boolean added = drainResults();
             if (scanning) {
                 if (++ticks % 20 == 0) saveAsync(); // keep progress if Android stops the app
                 notifyChanged();
@@ -320,16 +409,25 @@ final class Repo {
         }
     };
 
-    private boolean drainPassed() {
-        boolean added = false;
+    private boolean drainResults() {
+        boolean changed = false;
         Channel c;
-        while ((c = passed.poll()) != null) added |= addWorking(c);
-        return added;
+        while ((c = passed.poll()) != null) changed |= addWorking(c);
+        while ((c = failed.poll()) != null) changed |= dropWorking(c.url);
+        return changed;
     }
 
     private boolean addWorking(Channel c) {
         if (!workingUrls.add(c.url)) return false;
         working.add(c);
+        return true;
+    }
+
+    /** A channel that just failed the check is taken off the list right away. */
+    private boolean dropWorking(String url) {
+        if (!workingUrls.remove(url)) return false;
+        int i = indexOf(working, url);
+        if (i >= 0) working.remove(i);
         return true;
     }
 
@@ -480,24 +578,32 @@ final class Repo {
     }
 
     List<Channel> channels(String category, Set<String> favourites) {
-        if (FOR_YOU.equals(category)) {
-            List<Channel> popular = Popular.channels(working);
-            return popular.isEmpty() ? new ArrayList<>(working) : popular; // until the check finds some
-        }
+        if (FOR_YOU.equals(category)) return Popular.channels(working);
         if (RECENT.equals(category)) return recent();
         if (isAction(category)) return new ArrayList<>();
         if (isSearch(category)) return search(category.substring(SEARCH.length()));
         if (isPlaylist(category)) return playlistChannels(category);
         List<Channel> out = new ArrayList<>();
         for (Channel c : working) if (matches(c, category, favourites)) out.add(c);
+        sortCuratedFirst(out);
         return out;
     }
 
+    /**
+     * The curated, well-known channels come first, then the rest alphabetically. Every list
+     * therefore opens on channels people recognise instead of a random scan order.
+     */
+    private static void sortCuratedFirst(List<Channel> list) {
+        java.util.Collections.sort(list, (a, b) -> {
+            boolean ac = a.rank > 0, bc = b.rank > 0;
+            if (ac != bc) return ac ? -1 : 1;
+            if (ac) return Integer.compare(a.rank, b.rank);
+            return a.name.compareToIgnoreCase(b.name);
+        });
+    }
+
     int count(String category, Set<String> favourites) {
-        if (FOR_YOU.equals(category)) {
-            int n = Popular.channels(working).size();
-            return n == 0 ? working.size() : n;
-        }
+        if (FOR_YOU.equals(category)) return Popular.channels(working).size();
         if (RECENT.equals(category)) return Session.recent(app).size();
         if (isAction(category)) return 0;
         if (isSearch(category)) return search(category.substring(SEARCH.length())).size();

@@ -27,6 +27,7 @@ final class Store {
     private static final String FILE = "scan.json";
     private static final String PREFS = "ghar_tv";
     private static final String KEY_FAVS = "favourites";
+    private static final String KEY_CURATED = "curated_signature";
 
     static final class ScanCache {
         long time;
@@ -263,6 +264,20 @@ final class Store {
 
     static Set<String> favourites(Context c) {
         return new HashSet<>(prefs(c).getStringSet(KEY_FAVS, new HashSet<String>()));
+    }
+
+    /** Replaces the saved favourites (used when a channel is restored under a new address). */
+    static void setFavourites(Context c, Set<String> urls) {
+        prefs(c).edit().putStringSet(KEY_FAVS, new HashSet<>(urls)).apply();
+    }
+
+    /** Which built-in curated list the saved check results belong to. */
+    static String curatedSignature(Context c) {
+        return prefs(c).getString(KEY_CURATED, "");
+    }
+
+    static void setCuratedSignature(Context c, String signature) {
+        prefs(c).edit().putString(KEY_CURATED, signature).apply();
     }
 
     /** @return true if it is now a favourite */

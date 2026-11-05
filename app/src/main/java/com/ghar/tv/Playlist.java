@@ -17,11 +17,18 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Downloads and parses the iptv-org M3U playlist (kept on the TV for offline starts). */
+/**
+ * Builds the channel list: the curated list built into the app (tested from Nepal, in a fixed
+ * order) plus everything else from the public iptv-org playlist (kept on the TV for offline starts).
+ *
+ * The curated channels come first, so "For You" is ready as soon as they pass the health check,
+ * and they are the only ones with a channel number.
+ */
 final class Playlist {
 
     static final String URL = "https://iptv-org.github.io/iptv/index.m3u";
     private static final String FILE = "playlist.m3u";
+    private static final String CURATED = "curated.m3u";
     private static final long MAX_AGE_MS = 24 * 60 * 60 * 1000L;
 
     /** Shown in this order on the left; anything else goes to "Other". */
@@ -43,6 +50,7 @@ final class Playlist {
 
     /** Background thread only. Uses the saved copy if it is fresh or the download fails. */
     static List<Channel> load(Context c) throws Exception {
+        List<Channel> curated = loadCurated(c);
         File f = new File(c.getFilesDir(), FILE);
         boolean fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < MAX_AGE_MS;
         String text = null;
@@ -56,11 +64,63 @@ final class Playlist {
                 // fall back to the saved copy
             }
         }
+        if (text == null && f.exists()) text = read(f);
         if (text == null) {
-            if (!f.exists()) throw new Exception("Couldn't download the channel list");
-            text = read(f);
+            // First run with no internet: the built-in list still gives the TV something to watch.
+            if (curated.isEmpty()) throw new Exception("Couldn't download the channel list");
+            return curated;
         }
-        return parse(text);
+        List<Channel> net = parse(text);
+        Collections.sort(net, (a, b) -> rank(a) - rank(b)); // Nepal, then India, then the world
+        return merge(curated, net);
+    }
+
+    /** The curated channels built into the app, numbered 1, 2, 3… (see assets/curated.m3u). */
+    private static List<Channel> loadCurated(Context c) {
+        try (InputStream in = c.getAssets().open(CURATED)) {
+            List<Channel> list = parse(readAll(in));
+            for (int i = 0; i < list.size(); i++) list.get(i).rank = i + 1;
+            return list;
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Curated channels first (they keep their order and channel number), then the rest of the
+     * playlist. A channel that is already there — same address, or the same iptv-org id — is not
+     * added twice.
+     */
+    private static List<Channel> merge(List<Channel> curated, List<Channel> net) {
+        List<Channel> out = new ArrayList<>(curated);
+        Set<String> urls = new HashSet<>();
+        Set<String> ids = new HashSet<>();
+        for (Channel ch : curated) {
+            urls.add(ch.url);
+            String id = idOf(ch);
+            if (!id.isEmpty()) ids.add(id);
+        }
+        for (Channel ch : net) {
+            if (urls.contains(ch.url)) continue;
+            String id = idOf(ch);
+            if (!id.isEmpty() && ids.contains(id)) continue;
+            urls.add(ch.url);
+            if (!id.isEmpty()) ids.add(id);
+            out.add(ch);
+        }
+        return out;
+    }
+
+    private static String idOf(Channel c) {
+        return c.tvgId == null ? "" : c.tvgId.trim().toLowerCase(Locale.US);
+    }
+
+    private static String readAll(InputStream in) throws Exception {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+        return new String(out.toByteArray(), Charset.forName("UTF-8"));
     }
 
     static List<Channel> parse(String text) {
@@ -85,6 +145,7 @@ final class Playlist {
                     String value = m.group(2);
                     if ("tvg-logo".equals(key)) pending.logo = value;
                     else if ("group-title".equals(key)) addCategories(pending, value);
+                    else if ("tvg-country".equals(key)) pending.country = value.trim().toLowerCase(Locale.US);
                     else if ("tvg-id".equals(key)) {
                         pending.tvgId = value.trim();
                         Matcher cm = COUNTRY.matcher(value.toLowerCase(Locale.US));
@@ -105,7 +166,6 @@ final class Playlist {
             }
         }
         // Check Nepal first, then India, then the rest of the world.
-        Collections.sort(out, (a, b) -> rank(a) - rank(b));
         return out;
     }
 
