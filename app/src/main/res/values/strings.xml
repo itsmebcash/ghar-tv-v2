@@ -140,4 +140,19 @@
     <string name="off">Off</string>
     <string name="volume_on">Even volume on: quiet channels up, loud ones down</string>
     <string name="volume_off">Even volume off</string>
+    <!-- 3.1 -->
+    <string name="back_again_exit">Press Back again to exit Ghar TV</string>
+    <string name="option_sound">Sound: %1$s</string>
+    <string name="sound_title">Sound mode</string>
+    <string name="sound_set">Sound: %1$s</string>
+    <string name="sound_normal">Normal</string>
+    <string name="sound_voice">Clear voice (news, talk shows)</string>
+    <string name="sound_music">Music</string>
+    <string name="sound_movie">Movie</string>
+    <string name="sound_bass">Bass boost</string>
+    <string name="sound_night">Night (soft bass, clear words)</string>
+    <string name="news_now">just now</string>
+    <string name="news_min">%1$d min ago</string>
+    <string name="news_hours">%1$d h ago</string>
+    <string name="news_yesterday">yesterday</string>
 </resources>

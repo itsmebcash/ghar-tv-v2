@@ -96,6 +96,15 @@ final class Store {
     // ---------------------------------------------------------- screen mode
 
     /** 0 = Fit (whole picture), 1 = Fill (zoom, no black bars), 2 = Stretch (full screen). */
+    /** Sound mode: 0 Normal, 1 Clear voice, 2 Music, 3 Movie, 4 Bass boost, 5 Night. */
+    static int soundMode(Context c) {
+        return prefs(c).getInt("sound_mode", 0);
+    }
+
+    static void setSoundMode(Context c, int mode) {
+        prefs(c).edit().putInt("sound_mode", mode).apply();
+    }
+
     /** Even out the volume between loud and quiet channels. */
     static boolean evenVolume(Context c) {
         return prefs(c).getBoolean("even_volume", true);

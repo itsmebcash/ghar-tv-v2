@@ -142,7 +142,19 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private TextView jokeText;
     /** Only for slow starts: fast channels never flash a joke. */
     private final Runnable showJoke = () -> {
-        jokeText.setText(Jokes.next(this));
+        // Latest Nepali headlines while it connects (new ones first, then they loop); a joke when there are none
+        News.Item news = News.next(this);
+        TextView title = findViewById(R.id.joke_title);
+        if (news != null) {
+            String age = News.age(this, news.time);
+            title.setText(age.isEmpty() ? news.source : news.source + "  ·  " + age);
+            jokeText.setTypeface(android.graphics.Typeface.SANS_SERIF);
+            jokeText.setText(news.title);
+        } else {
+            title.setText(R.string.joke_title);
+            jokeText.setTypeface(android.graphics.Typeface.SERIF);
+            jokeText.setText(Jokes.next(this));
+        }
         jokeBox.setAlpha(0f);
         jokeBox.setVisibility(View.VISIBLE);
         jokeBox.animate().alpha(1f).setDuration(250).start();
@@ -281,6 +293,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
         // Top up the joke file later, away from the channel start.
         handler.postDelayed(() -> Jokes.refreshIfNeeded(this), 15_000);
+        handler.postDelayed(() -> News.refreshIfNeeded(this), 4_000);
 
         repo.addListener(this);
         browseCategory = category;
@@ -467,6 +480,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         leveller = new Leveller(); // evens out loud and quiet channels
         leveller.setEnabled(Store.evenVolume(this));
         Leveller lev = leveller;
+        sound = new SoundEffects(); // Clear voice / Music / Movie ... (Menu > Sound)
+        sound.setMode(Store.soundMode(this));
+        SoundEffects eq = sound;
         DefaultRenderersFactory renderers = new DefaultRenderersFactory(this) {
             @Override
             protected androidx.media3.exoplayer.audio.AudioSink buildAudioSink(android.content.Context context,
@@ -474,7 +490,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                         .setEnableFloatOutput(false) // the leveller works on 16-bit sound
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                        .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[]{lev})
+                        .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[]{eq, lev})
                         .build();
             }
         }.setEnableDecoderFallback(true)
@@ -553,6 +569,25 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     private ImageView refreshButton;
     private TextView numberEntry;
     private Leveller leveller;
+    private SoundEffects sound;
+    private long lastBackAt;
+
+    private static final int[] SOUND_NAMES = {R.string.sound_normal, R.string.sound_voice, R.string.sound_music,
+            R.string.sound_movie, R.string.sound_bass, R.string.sound_night};
+
+    private void chooseSound() {
+        String[] items = new String[SOUND_NAMES.length];
+        for (int i = 0; i < items.length; i++) items[i] = getString(SOUND_NAMES[i]);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.sound_title)
+                .setSingleChoiceItems(items, Store.soundMode(this), (d, w) -> {
+                    Store.setSoundMode(this, w);
+                    if (sound != null) sound.setMode(w);
+                    showMessage(getString(R.string.sound_set, items[w]));
+                    d.dismiss();
+                })
+                .show();
+    }
     private String levelUrl;
     private boolean failedNow;
     private boolean toldNoSound;
@@ -722,6 +757,17 @@ public class PlayerActivity extends Activity implements Repo.Listener {
      */
     @Override
     public void onBackPressed() {
+        // Back twice quickly: leave Ghar TV (no more small <-> full screen loop)
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastBackAt < 2500) {
+            handler.removeCallbacksAndMessages(null);
+            releasePlayer();
+            repo.exitNow();
+            finish();
+            return;
+        }
+        lastBackAt = now;
+        if (isTv && !isPanelOpen() && !watchPage) showMessage(getString(R.string.back_again_exit));
         if (isPanelOpen()) {
             closePanel(); // (also brings a mini player back to full screen)
             return;
@@ -1275,6 +1321,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         handler.postDelayed(startTimeout, START_TIMEOUT_MS);
         hideJoke();
         handler.postDelayed(showJoke, 900);
+        News.refreshIfNeeded(this); // every 15 minutes at most, in the background
         preloadNeighbours();
         if (Repo.RECENT.equals(browseCategory)) refreshBrowse(false); // new top entry
         else {
@@ -1525,6 +1572,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_screen, getString(MODE_LABELS[screenMode])),
                 getString(R.string.option_sleep, sleepLabel()),
                 getString(R.string.option_volume, getString(Store.evenVolume(this) ? R.string.on : R.string.off)),
+                getString(R.string.option_sound, getString(SOUND_NAMES[Store.soundMode(this)])),
                 getString(R.string.option_subtitles),
                 getString(R.string.menu_add_to_playlist),
                 getString(R.string.option_from_phone),
@@ -1545,10 +1593,11 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                         if (leveller != null) leveller.setEnabled(on);
                         showMessage(getString(on ? R.string.volume_on : R.string.volume_off));
                     }
-                    else if (w == 6) chooseSubtitles();
-                    else if (w == 7) Menus.addToPlaylist(this, c, this::channelsChanged);
-                    else if (w == 8) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
-                    else if (w == 9) rescan();
+                    else if (w == 6) chooseSound();
+                    else if (w == 7) chooseSubtitles();
+                    else if (w == 8) Menus.addToPlaylist(this, c, this::channelsChanged);
+                    else if (w == 9) startActivityForResult(new Intent(this, ReceiveActivity.class), REQUEST_FROM_PHONE);
+                    else if (w == 10) rescan();
                     else MainActivity.showAbout(this);
                 })
                 .show();
