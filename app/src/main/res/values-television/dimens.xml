@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- On a TV: the headline box while a channel connects, readable from 3 metres -->
+<resources>
+    <dimen name="joke_offset">130dp</dimen>
+    <dimen name="joke_width">780dp</dimen>
+    <dimen name="joke_text">26sp</dimen>
+    <dimen name="joke_title">15sp</dimen>
+</resources>

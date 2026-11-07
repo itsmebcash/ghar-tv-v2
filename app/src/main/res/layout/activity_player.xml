@@ -83,10 +83,10 @@
             android:background="@drawable/message_bg"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="12dp"
+            android:paddingStart="28dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="28dp"
+            android:paddingBottom="16dp"
             android:visibility="gone">
 
             <TextView
@@ -96,8 +96,8 @@
                 android:letterSpacing="0.1"
                 android:text="@string/joke_title"
                 android:textAllCaps="true"
-                android:textColor="#E50914"
-                android:textSize="10sp" />
+                android:textColor="#FF4D57"
+                android:textSize="@dimen/joke_title" />
 
             <TextView
                 android:id="@+id/joke_text"

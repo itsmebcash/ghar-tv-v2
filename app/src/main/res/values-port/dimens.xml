@@ -9,4 +9,5 @@
     <dimen name="joke_offset">70dp</dimen>
     <dimen name="joke_width">300dp</dimen>
     <dimen name="joke_text">12sp</dimen>
+    <dimen name="joke_title">10sp</dimen>
 </resources>
