@@ -155,4 +155,6 @@
     <string name="news_min">%1$d min ago</string>
     <string name="news_hours">%1$d h ago</string>
     <string name="news_yesterday">yesterday</string>
+    <string name="picture_lighter">No picture yet: trying a lighter version of this channel for this TV…</string>
+    <string name="picture_off">This channel\'s picture is too heavy for this TV, so only the sound plays. Try another channel.</string>
 </resources>

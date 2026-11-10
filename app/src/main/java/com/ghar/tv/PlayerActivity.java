@@ -287,6 +287,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         setupGestures();
 
         player = buildPlayer();
+        limitPicture(0);
         playerView.setPlayer(player);
         player.addListener(new PlayerEvents());
         applySubtitlePreference();
@@ -502,6 +503,51 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 .build();
     }
 
+    // =================================================================== sound but no picture
+
+    /*
+     * Budget TVs (like the 32" Xiaomi) have a small video chip. Some channels send 4K or very
+     * high-quality video it can't decode: you hear sound, the screen stays black, and after a
+     * while the chip gives up and Android closes the app. So:
+     *  - never pick more than Full HD when a channel offers a choice;
+     *  - if sound plays but no picture has appeared after a few seconds, drop to a lighter
+     *    version of the channel (720p, low bitrate);
+     *  - if there's still no picture, switch the picture off and say so, keeping the sound,
+     *    instead of letting the video chip crash the app.
+     */
+    private static final long NO_PICTURE_MS = 8000;
+    private boolean firstFrame;
+    private int pictureStage;
+
+    /** 0 = up to Full HD, 1 = light (720p, low bitrate), 2 = picture off (sound only). */
+    private void limitPicture(int stage) {
+        androidx.media3.common.TrackSelectionParameters.Builder b = player.getTrackSelectionParameters().buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, stage >= 2);
+        if (stage == 0) {
+            b.setMaxVideoSize(1920, 1080).setMaxVideoBitrate(12_000_000).setForceLowestBitrate(false);
+        } else {
+            b.setMaxVideoSize(1280, 720).setMaxVideoBitrate(2_500_000).setForceLowestBitrate(true);
+        }
+        player.setTrackSelectionParameters(b.build());
+    }
+
+    private final Runnable noPicture = new Runnable() {
+        @Override
+        public void run() {
+            if (player == null || firstFrame || !player.isPlaying()) return;
+            if (!player.getCurrentTracks().containsType(C.TRACK_TYPE_VIDEO)) return; // a radio-style channel
+            pictureStage++;
+            if (pictureStage == 1) {
+                limitPicture(1);
+                showMessage(getString(R.string.picture_lighter));
+                handler.postDelayed(this, NO_PICTURE_MS + 4000);
+            } else {
+                limitPicture(2);
+                showMessage(getString(R.string.picture_off));
+            }
+        }
+    };
+
     private class PlayerEvents implements Player.Listener {
         @Override
         public void onPlaybackStateChanged(int state) {
@@ -519,6 +565,10 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 statusText.setVisibility(View.GONE);
                 hideJoke();
                 repo.setPlaybackActive(true);
+                if (!firstFrame) {
+                    handler.removeCallbacks(noPicture);
+                    handler.postDelayed(noPicture, NO_PICTURE_MS);
+                }
             } else if (state == Player.STATE_BUFFERING) {
                 spinner.setVisibility(View.VISIBLE);
                 showStatusRes(ready ? R.string.status_buffering : R.string.status_connecting);
@@ -530,6 +580,12 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             // Keep the screen awake only while video is actually playing (saves battery).
             if (isPlaying) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+
+        @Override
+        public void onRenderedFirstFrame() {
+            firstFrame = true;
+            handler.removeCallbacks(noPicture);
         }
 
         /** Some streams carry the current programme's title; show it when they do. */
@@ -1311,6 +1367,10 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         CrashGuard.opening(c.url, true);
 
         player.stop();
+        firstFrame = false;
+        pictureStage = 0;
+        handler.removeCallbacks(noPicture);
+        limitPicture(0);
         clearSubtitleOverride();
         player.setMediaSource(source);
         player.prepare();
