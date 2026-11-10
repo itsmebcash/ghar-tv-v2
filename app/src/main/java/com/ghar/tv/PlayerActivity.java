@@ -494,6 +494,21 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                         .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[]{eq, lev})
                         .build();
             }
+
+            /**
+             * Video always uses the TV's own video chip, as before 3.0. The FFmpeg add-on also has a
+             * software video decoder; on a TV processor it can't keep up (sound, black screen,
+             * then the app is closed), so it's only used for sound.
+             */
+            @Override
+            protected void buildVideoRenderers(android.content.Context context, int extensionRendererMode,
+                    androidx.media3.exoplayer.mediacodec.MediaCodecSelector mediaCodecSelector,
+                    boolean enableDecoderFallback, android.os.Handler eventHandler,
+                    androidx.media3.exoplayer.video.VideoRendererEventListener eventListener,
+                    long allowedVideoJoiningTimeMs, java.util.ArrayList<androidx.media3.exoplayer.Renderer> out) {
+                super.buildVideoRenderers(context, EXTENSION_RENDERER_MODE_OFF, mediaCodecSelector,
+                        enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out);
+            }
         }.setEnableDecoderFallback(true)
                 // sound formats the TV can't play itself (MP2, AC-3 / Dolby, E-AC-3, DTS): FFmpeg decodes them
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
