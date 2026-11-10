@@ -1,0 +1,70 @@
+name: Smoke test on TV emulator
+
+# Runs Ghar TV on an Android 9 TV emulator, plays channels, and prints any crash.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86
+          target: android-tv
+          profile: tv_1080p
+          disable-animations: true
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n com.ghar.tv/.MainActivity; sleep 60
+            adb exec-out screencap -p > shot-1-home.png
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 25
+            adb exec-out screencap -p > shot-2-playing.png
+            adb shell input keyevent KEYCODE_DPAD_UP; sleep 12
+            adb shell input keyevent KEYCODE_DPAD_UP; sleep 12
+            adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 12
+            adb shell input keyevent KEYCODE_CHANNEL_UP; sleep 12
+            adb exec-out screencap -p > shot-3-zapping.png
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 4
+            adb exec-out screencap -p > shot-4-menu.png
+            adb shell input keyevent KEYCODE_BACK; sleep 3
+            adb shell input keyevent KEYCODE_BACK; sleep 5
+            adb exec-out screencap -p > shot-5-back.png
+            adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 2
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 25
+            adb shell input keyevent KEYCODE_BACK; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 5
+            adb logcat -d -b crash > crash.txt || true
+            adb shell run-as com.ghar.tv cat files/crash-report.txt > report.txt 2>/dev/null || true
+            echo "===== CRASH BUFFER ====="; cat crash.txt
+            echo "===== APP REPORT ====="; cat report.txt
+            echo "===== LOG ====="; adb logcat -d | grep -E "AndroidRuntime|FATAL|ExoPlayer|ghar|Ghar" | tail -150
+      - name: Save screenshots
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp shot-*.png /tmp/shots/ 2>/dev/null || true
+          git config user.name "smoke-test" && git config user.email "smoke@localhost"
+          git checkout --orphan smoke-shots
+          git rm -rfq . && git clean -fdxq
+          cp /tmp/shots/*.png . 2>/dev/null || true
+          git add -A && git commit -qm "Smoke test screenshots" && git push -fq origin smoke-shots
