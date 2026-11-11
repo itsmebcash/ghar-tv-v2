@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; padding: 0; background: #000; width: 100%; height: 100%; overflow: hidden; }
+  #p, iframe { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: 0; }
+</style>
+</head>
+<body>
+<div id="p"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  // Official YouTube IFrame player, controlled by Ghar Player (Android) through window.Ghar.
+  var ORIGIN = 'https://com.ghar.player';
+  var player = null, ready = false, pending = null;
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('p', {
+      width: '100%', height: '100%',
+      playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0,
+                    origin: ORIGIN, widget_referrer: ORIGIN },
+      events: {
+        onReady: function () { ready = true; Ghar.onReady(); if (pending) { pending(); pending = null; } },
+        onStateChange: function (e) { Ghar.onState(e.data); },
+        onError: function (e) { Ghar.onError(e.data); }
+      }
+    });
+  }
+  function run(f) { if (ready) f(); else pending = f; }
+  function loadVideo(id, start, rate) { run(function () { player.loadVideoById({ videoId: id, startSeconds: start }); player.setPlaybackRate(rate); }); }
+  function loadList(id, index, start, rate) { run(function () { player.loadPlaylist({ list: id, listType: 'playlist', index: index, startSeconds: start }); player.setPlaybackRate(rate); }); }
+  function play() { run(function () { player.playVideo(); }); }
+  function pause() { run(function () { player.pauseVideo(); }); }
+  function stop() { run(function () { player.stopVideo(); }); }
+  function seek(sec) { run(function () { player.seekTo(sec, true); }); }
+  function rate(r) { run(function () { player.setPlaybackRate(r); }); }
+  function nextInList() { run(function () { player.nextVideo(); }); }
+  function prevInList() { run(function () { player.previousVideo(); }); }
+
+  setInterval(function () {
+    if (!ready || !player.getCurrentTime) return;
+    var list = player.getPlaylist ? player.getPlaylist() : null;
+    var data = player.getVideoData ? player.getVideoData() : null;
+    Ghar.onTime(player.getCurrentTime() * 1000, player.getDuration() * 1000, player.getPlayerState(),
+                player.getPlaylistIndex ? player.getPlaylistIndex() : -1, list ? list.length : 0,
+                data && data.title ? data.title : '');
+  }, 500);
+</script>
+</body>
+</html>
