@@ -5,4 +5,29 @@
     <dimen name="joke_width">780dp</dimen>
     <dimen name="joke_text">26sp</dimen>
     <dimen name="joke_title">15sp</dimen>
+
+    <!-- 3.4: bigger text and tiles on the TV, easy to read for elders -->
+    <dimen name="ch_col">180dp</dimen>
+    <dimen name="ch_logo_h">96dp</dimen>
+    <dimen name="ch_name">19sp</dimen>
+    <dimen name="ch_sub">14sp</dimen>
+    <dimen name="ch_num">15sp</dimen>
+    <dimen name="cat_w">262dp</dimen>
+    <dimen name="cat_h">58dp</dimen>
+    <dimen name="cat_name">21sp</dimen>
+    <dimen name="cat_count">17sp</dimen>
+    <dimen name="head_title">34sp</dimen>
+    <dimen name="head_status">18sp</dimen>
+    <dimen name="head_button">19sp</dimen>
+    <dimen name="head_hint">16sp</dimen>
+    <dimen name="empty_text">22sp</dimen>
+    <dimen name="pch_h">86dp</dimen>
+    <dimen name="pch_num">18sp</dimen>
+    <dimen name="pch_name">21sp</dimen>
+    <dimen name="pch_sub">15sp</dimen>
+    <dimen name="pcat_h">58dp</dimen>
+    <dimen name="pcat_name">20sp</dimen>
+    <dimen name="pcat_count">16sp</dimen>
+    <dimen name="panel_width">720dp</dimen>
+    <dimen name="panel_categories_width">236dp</dimen>
 </resources>

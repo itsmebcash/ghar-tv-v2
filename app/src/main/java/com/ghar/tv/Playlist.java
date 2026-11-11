@@ -88,8 +88,8 @@ final class Playlist {
 
     /**
      * Curated channels first (they keep their order and channel number), then the rest of the
-     * playlist. A channel that is already there — same address, or the same iptv-org id — is not
-     * added twice.
+     * playlist. The same address is not added twice; the same channel with another link is kept
+     * (only one of them is ever shown, see Repo.addWorking).
      */
     private static List<Channel> merge(List<Channel> curated, List<Channel> net) {
         List<Channel> out = new ArrayList<>(curated);
@@ -101,11 +101,11 @@ final class Playlist {
             if (!id.isEmpty()) ids.add(id);
         }
         for (Channel ch : net) {
+            // Same address: skip. Same channel with a different link: keep it as a spare. If the
+            // built-in link stops working, the online one still shows (it used to be dropped,
+            // which is why some channels were on the phone but not on the TV).
             if (urls.contains(ch.url)) continue;
-            String id = idOf(ch);
-            if (!id.isEmpty() && ids.contains(id)) continue;
             urls.add(ch.url);
-            if (!id.isEmpty()) ids.add(id);
             out.add(ch);
         }
         return out;

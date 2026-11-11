@@ -157,4 +157,16 @@
     <string name="news_yesterday">yesterday</string>
     <string name="picture_lighter">No picture yet: trying a lighter version of this channel for this TV…</string>
     <string name="picture_off">This channel\'s picture is too heavy for this TV, so only the sound plays. Try another channel.</string>
+    <!-- 3.4: category names and language -->
+    <string name="cat_for_you">For You</string>
+    <string name="cat_favourites">Favourites</string>
+    <string name="cat_recent">Last Watched</string>
+    <string name="cat_all">All</string>
+    <string name="cat_local">Nepal &amp; India</string>
+    <string name="cat_news">News</string>
+    <string name="cat_entertainment">Entertainment</string>
+    <string name="cat_education">Education</string>
+    <string name="cat_lifestyle">Lifestyle</string>
+    <string name="cat_other">Other</string>
+    <string name="option_language">भाषा / Language: English</string>
 </resources>

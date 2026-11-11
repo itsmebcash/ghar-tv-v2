@@ -84,8 +84,8 @@ final class Repo {
         void onRepoChanged();
     }
 
-    private static final int THREADS_BROWSING = 24;
-    private static final int THREADS_WHILE_PLAYING = 4;
+    private static final int THREADS_BROWSING = 12; // like Ghar TV Mobile: more at once makes good channels time out
+    private static final int THREADS_WHILE_PLAYING = 2; // leave the bandwidth to the channel you watch
     private static final long STOP_WHEN_HIDDEN_MS = 3000;
 
     private static Repo instance;
@@ -208,6 +208,7 @@ final class Repo {
                     notifyChanged();
                     Snapshot.refreshAsync(app);
                     refreshCuratedIfChanged();
+                    recheckFailedEveryFewDays();
                     if (visibleScreens > 0) resumeScanIfNeeded();
                     recheckFavouritesWeekly();
                 } else {
@@ -344,12 +345,21 @@ final class Repo {
         toCheck = list.size();
         checked.set(0);
         Store.ScanCache target = cache;
+        // A channel that worked before (or is a favourite) is kept when the check is only unsure
+        // (slow, connection dropped): a weak connection mustn't wipe out the list.
+        Set<String> keep = new HashSet<>(workingUrls);
+        synchronized (cache) {
+            keep.addAll(cache.working.keySet());
+        }
+        keep.addAll(Store.favourites(app));
         scanner = new Scanner(playbackActive ? THREADS_WHILE_PLAYING : THREADS_BROWSING);
         scanner.start(list, new Scanner.Listener() {
             @Override
-            public void onChecked(Channel c, boolean ok) {
+            public void onChecked(Channel c, int result) {
+                boolean ok = result == Probe.OK || (result == Probe.UNSURE && keep.contains(c.url));
                 synchronized (target) {
-                    target.checked.add(c.url);
+                    // "Unsure" new channels are left unchecked, so they are tried again next time.
+                    if (result != Probe.UNSURE || ok) target.checked.add(c.url);
                     if (ok) {
                         target.working.put(c.url, c.hls);
                         target.okTime.put(c.url, System.currentTimeMillis());
@@ -357,7 +367,7 @@ final class Repo {
                 }
                 checked.incrementAndGet();
                 if (ok) passed.add(c);
-                else failed.add(c);
+                else if (result == Probe.DEAD) failed.add(c);
             }
 
             @Override
@@ -418,16 +428,26 @@ final class Repo {
     }
 
     private boolean addWorking(Channel c) {
+        // The built-in list and the online list may both have a channel (different links):
+        // the first one that works is shown, the other is a spare.
+        String id = c.tvgId == null ? "" : c.tvgId.trim().toLowerCase(java.util.Locale.US);
+        if (!id.isEmpty() && workingIds.contains(id) && !workingUrls.contains(c.url)) return false;
         if (!workingUrls.add(c.url)) return false;
+        if (!id.isEmpty()) workingIds.add(id);
         working.add(c);
         return true;
     }
+
+    private final Set<String> workingIds = new HashSet<>();
 
     /** A channel that just failed the check is taken off the list right away. */
     private boolean dropWorking(String url) {
         if (!workingUrls.remove(url)) return false;
         int i = indexOf(working, url);
-        if (i >= 0) working.remove(i);
+        if (i >= 0) {
+            Channel gone = working.remove(i);
+            if (gone.tvgId != null) workingIds.remove(gone.tvgId.trim().toLowerCase(java.util.Locale.US));
+        }
         return true;
     }
 
@@ -441,6 +461,34 @@ final class Repo {
     }
 
     // ---------------------------------------------------------------- edits
+
+    // ------------------------------------------------- channels that failed, every few days
+
+    private static final long FEW_DAYS_MS = 3L * 24 * 60 * 60 * 1000;
+
+    /**
+     * A channel that failed once (down for maintenance, a slow evening) used to stay hidden until a
+     * full Rescan. Every 3 days the failed ones are quietly checked again, after the rest.
+     */
+    private void recheckFailedEveryFewDays() {
+        long last = app.getSharedPreferences("ghar_scan_meta", Context.MODE_PRIVATE).getLong("failed_recheck", 0);
+        if (System.currentTimeMillis() - last < FEW_DAYS_MS) return;
+        app.getSharedPreferences("ghar_scan_meta", Context.MODE_PRIVATE).edit()
+                .putLong("failed_recheck", System.currentTimeMillis()).apply();
+        boolean any = false;
+        synchronized (cache) {
+            java.util.Iterator<String> it = cache.checked.iterator();
+            while (it.hasNext()) {
+                String url = it.next();
+                if (!cache.working.containsKey(url)) {
+                    it.remove();
+                    any = true;
+                }
+            }
+            if (any) cache.complete = false;
+        }
+        if (any) saveAsync();
+    }
 
     // ------------------------------------------------- favourites, weekly
 
@@ -465,8 +513,8 @@ final class Repo {
         List<Channel> back = java.util.Collections.synchronizedList(new ArrayList<Channel>());
         new Scanner(3).start(missing, new Scanner.Listener() {
             @Override
-            public void onChecked(Channel c, boolean ok) {
-                if (!ok) return;
+            public void onChecked(Channel c, int result) {
+                if (result != Probe.OK) return;
                 synchronized (target) {
                     target.working.put(c.url, c.hls);
                     target.okTime.put(c.url, System.currentTimeMillis());
@@ -495,10 +543,7 @@ final class Repo {
         synchronized (cache) {
             for (String u : urls) cache.working.remove(u);
         }
-        workingUrls.removeAll(urls);
-        for (int i = working.size() - 1; i >= 0; i--) {
-            if (urls.contains(working.get(i).url)) working.remove(i);
-        }
+        for (String u : new ArrayList<>(urls)) dropWorking(u);
         saveAsync();
         notifyChanged();
         Snapshot.refreshAsync(app);
@@ -536,7 +581,19 @@ final class Repo {
             Store.UserPlaylist p = Store.playlist(c, key.substring(PLAYLIST.length()));
             return p == null ? "" : "♫  " + p.name;
         }
-        return key;
+        switch (key) { // the categories, in the app's language
+            case FOR_YOU: return c.getString(R.string.cat_for_you);
+            case FAVOURITES: return c.getString(R.string.cat_favourites);
+            case RECENT: return c.getString(R.string.cat_recent);
+            case ALL: return c.getString(R.string.cat_all);
+            case LOCAL: return c.getString(R.string.cat_local);
+            case NEWS: return c.getString(R.string.cat_news);
+            case ENTERTAINMENT: return c.getString(R.string.cat_entertainment);
+            case EDUCATION: return c.getString(R.string.cat_education);
+            case LIFESTYLE: return c.getString(R.string.cat_lifestyle);
+            case OTHER: return c.getString(R.string.cat_other);
+            default: return key;
+        }
     }
 
     static boolean isSearch(String key) {

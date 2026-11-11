@@ -63,6 +63,11 @@ import java.util.Map;
  */
 public class PlayerActivity extends Activity implements Repo.Listener {
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Lang.wrap(base)); // Nepali by default (Settings › भाषा / Language)
+    }
+
     private static final long START_TIMEOUT_MS = 12_000;
     private static final long INFO_VISIBLE_MS = 4_000;
     private static final int MAX_RECONNECTS = 3;
@@ -472,7 +477,9 @@ public class PlayerActivity extends Activity implements Repo.Listener {
      */
     private ExoPlayer buildPlayer() {
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(15_000, 60_000, 2_000, 4_000)
+                // Start after 2.5 s; after a stall, wait for 6 s of video so it doesn't stall again
+                // straight away (slow channels used to freeze, play a second, freeze...).
+                .setBufferDurationsMs(20_000, 60_000, 2_500, 6_000)
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
         DefaultBandwidthMeter bandwidth = new DefaultBandwidthMeter.Builder(this)

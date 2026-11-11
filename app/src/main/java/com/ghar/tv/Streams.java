@@ -48,7 +48,14 @@ final class Streams {
             data.setDefaultRequestProperties(headers);
         }
         DefaultLoadErrorHandlingPolicy retries = new DefaultLoadErrorHandlingPolicy(6);
-        MediaItem.Builder item = new MediaItem.Builder().setUri(c.url);
+        MediaItem.Builder item = new MediaItem.Builder().setUri(c.url)
+                // Live: stay a little further behind the newest video, so a slow channel has room
+                // to keep loading instead of freezing; catch up gently (no visible speed change).
+                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(18_000)
+                        .setMinPlaybackSpeed(0.97f)
+                        .setMaxPlaybackSpeed(1.03f)
+                        .build());
         boolean hls = c.hls || c.url.toLowerCase(Locale.ROOT).contains(".m3u8");
         if (hls) {
             item.setMimeType(MimeTypes.APPLICATION_M3U8);

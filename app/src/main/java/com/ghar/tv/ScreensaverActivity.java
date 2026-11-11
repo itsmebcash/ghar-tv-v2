@@ -46,6 +46,11 @@ import java.util.Random;
  */
 public class ScreensaverActivity extends Activity {
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Lang.wrap(base)); // Nepali by default (Settings › भाषा / Language)
+    }
+
     static final String ACTION = "com.ghar.tv.action.SCREENSAVER";
     private static final long START_TIMEOUT_MS = 15_000;
 

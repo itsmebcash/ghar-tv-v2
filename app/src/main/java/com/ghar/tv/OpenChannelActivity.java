@@ -15,6 +15,11 @@ import android.widget.Toast;
  */
 public class OpenChannelActivity extends Activity {
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Lang.wrap(base)); // Nepali by default (Settings › भाषा / Language)
+    }
+
     static final String ACTION_PLAY = "com.ghar.tv.action.PLAY_CHANNEL";
     static final String ACTION_RESUME = "com.ghar.tv.action.RESUME";
     static final String EXTRA_ID = "channel_id";

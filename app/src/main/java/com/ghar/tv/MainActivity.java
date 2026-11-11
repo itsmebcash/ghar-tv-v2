@@ -30,6 +30,11 @@ import java.util.Set;
  */
 public class MainActivity extends Activity implements Repo.Listener {
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Lang.wrap(base)); // Nepali by default (Settings › भाषा / Language)
+    }
+
     /** Opened on purpose from the player ("All channels"), not as the app's start. */
     static final String EXTRA_BROWSE = "browse";
 
@@ -137,6 +142,7 @@ public class MainActivity extends Activity implements Repo.Listener {
 
     @Override
     protected void onDestroy() {
+        ui.removeCallbacksAndMessages(null);
         handler.removeCallbacksAndMessages(null);
         if (taps != null) taps.cancel();
         if (repo != null) repo.removeListener(this);
@@ -187,8 +193,37 @@ public class MainActivity extends Activity implements Repo.Listener {
 
     // ------------------------------------------------------------- repo
 
+    /**
+     * While the scan runs the channel data changes every second. Redrawing the whole list that
+     * often made browsing stutter on the TV, so the list is refreshed at most every few seconds,
+     * never while you are pressing the remote, and only when something actually changed.
+     */
+    private static final long REFRESH_GAP_MS = 3000;
+    private static final long QUIET_AFTER_KEY_MS = 2500;
+    private long lastRefresh, lastKeyAt;
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable deferredRefresh = this::onRepoChanged;
+
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent e) {
+        lastKeyAt = android.os.SystemClock.uptimeMillis();
+        return super.dispatchKeyEvent(e);
+    }
+
     @Override
     public void onRepoChanged() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (repo.scanning && repo.loaded && !shown.isEmpty()) {
+            long wait = Math.max(lastRefresh + REFRESH_GAP_MS, lastKeyAt + QUIET_AFTER_KEY_MS) - now;
+            if (wait > 0) {
+                ui.removeCallbacks(deferredRefresh);
+                ui.postDelayed(deferredRefresh, wait);
+                updateStatusLine();
+                return;
+            }
+        }
+        ui.removeCallbacks(deferredRefresh);
+        lastRefresh = now;
         updateCategoryCounts();
         applyFilter(false);
         if (!repo.favouritesBackShown && repo.favouritesBack > 0) {
@@ -200,13 +235,8 @@ public class MainActivity extends Activity implements Repo.Listener {
         if (repo.loadFailed) {
             status.setText(R.string.list_error);
             showEmpty(getString(R.string.list_error_detail));
-        } else if (!repo.loaded) {
-            status.setText(R.string.loading_list);
-        } else if (repo.scanning) {
-            status.setText(getString(R.string.scanning, numbers.format(repo.checked.get()),
-                    numbers.format(repo.toCheck), numbers.format(repo.working.size())));
         } else {
-            showDoneStatus();
+            updateStatusLine();
         }
         // Coming from the player: put the selection on the channel you were watching.
         if (browseMode && !positionedOnLast && !shown.isEmpty()) {
@@ -292,6 +322,7 @@ public class MainActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_rescan),
                 getString(R.string.option_volume, getString(Store.evenVolume(this) ? R.string.on : R.string.off)),
                 getString(R.string.option_about),
+                getString(R.string.option_language),
         };
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(R.string.settings)
@@ -306,7 +337,23 @@ public class MainActivity extends Activity implements Repo.Listener {
                     else if (w == 4) {
                         Store.setEvenVolume(this, !Store.evenVolume(this));
                         toast(getString(Store.evenVolume(this) ? R.string.volume_on : R.string.volume_off));
-                    } else showAbout(this);
+                    } else if (w == 5) showAbout(this);
+                    else chooseLanguage();
+                })
+                .show();
+    }
+
+    /** नेपाली / English: the whole app switches straight away. */
+    private void chooseLanguage() {
+        String[] names = {"नेपाली", "English"};
+        int current = Lang.isNepali(this) ? 0 : 1;
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("भाषा / Language")
+                .setSingleChoiceItems(names, current, (d, which) -> {
+                    d.dismiss();
+                    if (which == current) return;
+                    Lang.set(this, which == 0 ? Lang.NEPALI : Lang.ENGLISH);
+                    recreate();
                 })
                 .show();
     }
@@ -380,6 +427,19 @@ public class MainActivity extends Activity implements Repo.Listener {
         return super.onKeyUp(keyCode, event);
     }
 
+    /** The small "checking channels…" line: cheap, so it can update every second. */
+    private void updateStatusLine() {
+        if (repo.loadFailed) return;
+        if (!repo.loaded) {
+            status.setText(R.string.loading_list);
+        } else if (repo.scanning) {
+            status.setText(getString(R.string.scanning, numbers.format(repo.checked.get()),
+                    numbers.format(repo.toCheck), numbers.format(repo.working.size())));
+        } else {
+            showDoneStatus();
+        }
+    }
+
     private void selectCategory(String name) {
         if (name.equals(category)) return;
         category = name;
@@ -394,7 +454,14 @@ public class MainActivity extends Activity implements Repo.Listener {
         }
     }
 
+    private String countsKey = "";
+
     private void updateCategoryCounts() {
+        // Counting goes through every channel for every category: only when something changed.
+        String key = repo.working.size() + "/" + favourites.size() + "/" + categoryNames.size()
+                + "/" + Store.playlists(this).size() + "/" + category;
+        if (key.equals(countsKey)) return;
+        countsKey = key;
         for (int i = 0; i < categoryNames.size(); i++) {
             String name = categoryNames.get(i);
             int n = repo.count(name, favourites);
@@ -409,11 +476,22 @@ public class MainActivity extends Activity implements Repo.Listener {
     // ------------------------------------------------------------- grid
 
     private void applyFilter(boolean resetPosition) {
+        List<Channel> next = repo.channels(category, favourites);
+        if (!resetPosition && sameList(next, shown)) {
+            updateEmpty();
+            return; // nothing changed: don't redraw (that's what made the list jump)
+        }
         shown.clear();
-        shown.addAll(repo.channels(category, favourites));
+        shown.addAll(next);
         adapter.notifyDataSetChanged();
         if (resetPosition && !shown.isEmpty()) grid.setSelection(0);
         updateEmpty();
+    }
+
+    private static boolean sameList(List<Channel> a, List<Channel> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) if (!a.get(i).url.equals(b.get(i).url)) return false;
+        return true;
     }
 
     private void updateEmpty() {

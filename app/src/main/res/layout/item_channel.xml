@@ -17,7 +17,7 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="88dp"
+            android:layout_height="@dimen/ch_logo_h"
             android:background="@drawable/logo_bg">
 
             <!-- Channel number (For You), so the remote's 1-2-3 matches the grid -->
@@ -36,7 +36,7 @@
                 android:paddingEnd="7dp"
                 android:paddingBottom="2dp"
                 android:textColor="#FFFFFF"
-                android:textSize="12sp"
+                android:textSize="@dimen/ch_num"
                 android:visibility="gone" />
 
             <!-- Shown until (or instead of) the logo -->
@@ -80,7 +80,7 @@
             android:fontFamily="sans-serif-medium"
             android:singleLine="true"
             android:textColor="@color/on_light"
-            android:textSize="15sp" />
+            android:textSize="@dimen/ch_name" />
 
         <TextView
             android:id="@+id/sub"
@@ -91,6 +91,6 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:textColor="@color/on_light_dim"
-            android:textSize="12sp" />
+            android:textSize="@dimen/ch_sub" />
     </LinearLayout>
 </LinearLayout>

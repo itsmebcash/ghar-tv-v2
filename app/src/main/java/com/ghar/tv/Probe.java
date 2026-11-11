@@ -5,20 +5,38 @@ import java.nio.charset.Charset;
 /**
  * Decides whether a channel really works, the way a player would:
  * playlist -> (variant playlist) -> first video segment, all within TIMEOUT_MS.
- * Channels that fail, are geo-blocked, or are too slow are rejected.
+ * Channels that fail, are geo-blocked, or are not a stream are rejected.
+ *
+ * Like Ghar TV Mobile, a check that only timed out or lost the connection is "unsure", not
+ * "dead": on home Wi-Fi a good channel can be slow to answer while many are checked at once.
  */
 final class Probe {
 
     static final long TIMEOUT_MS = 6000;
+    /** A second, more patient try for channels that were slow the first time. */
+    static final long SLOW_TIMEOUT_MS = 14000;
+
+    /** Works; definitely broken (error, not a stream); couldn't tell (timed out / connection trouble). */
+    static final int OK = 0, DEAD = 1, UNSURE = 2;
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
 
     private Probe() {
     }
 
-    static boolean check(Channel c) {
-        long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+    static int check(Channel c, long timeoutMs) {
         try {
-            Net.Result r = Net.get(c.url, c.userAgent, c.referrer, left(deadline), 256 * 1024);
+            return run(c, timeoutMs) ? OK : DEAD;
+        } catch (java.io.InterruptedIOException | java.net.UnknownHostException | java.net.SocketException e) {
+            return UNSURE; // the connection, not necessarily the channel
+        } catch (Throwable e) {
+            return DEAD;
+        }
+    }
+
+    private static boolean run(Channel c, long timeoutMs) throws Exception {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        try {
+            Net.Result r = Net.get(c.url, c.userAgent, c.referrer, left(deadline), 96 * 1024);
             String body = new String(r.data, LATIN1).trim();
 
             if (!body.startsWith("#EXTM3U")) {
@@ -40,7 +58,7 @@ final class Probe {
                 String variant = firstUri(body);
                 if (variant == null) return false;
                 Net.Result v = Net.get(Net.resolve(baseUrl, variant), c.userAgent, c.referrer,
-                        left(deadline), 256 * 1024);
+                        left(deadline), 96 * 1024);
                 body = new String(v.data, LATIN1);
                 baseUrl = v.finalUrl;
             }
@@ -52,8 +70,10 @@ final class Probe {
             Net.Result s = Net.get(Net.resolve(baseUrl, segment), c.userAgent, c.referrer,
                     left(deadline), 16 * 1024);
             return s.data.length > 0;
-        } catch (Throwable e) {
-            return false;
+        } catch (java.io.IOException e) {
+            String m = e.getMessage();
+            if (m != null && m.startsWith("HTTP ")) return false; // the server said no
+            throw e;
         }
     }
 

@@ -28,6 +28,11 @@ final class Logos {
 
     /** @param placeholder optional view (e.g. initials) hidden once the logo is showing */
     static void load(Context ctx, ImageView view, String url, android.view.View placeholder) {
+        // Already showing this logo (the list was just redrawn): leave it, no flicker.
+        if (url != null && url.equals(view.getTag()) && view.getDrawable() != null) {
+            if (placeholder != null) placeholder.setVisibility(android.view.View.GONE);
+            return;
+        }
         view.setTag(url);
         if (placeholder != null) placeholder.setVisibility(android.view.View.VISIBLE);
         if (url == null || url.isEmpty()) {

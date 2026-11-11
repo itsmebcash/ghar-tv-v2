@@ -24,6 +24,11 @@ import java.util.List;
  */
 public class ReceiveActivity extends Activity {
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Lang.wrap(base)); // Nepali by default (Settings › भाषा / Language)
+    }
+
     static final String SERVICE_TYPE = "_ghartv._tcp.";
 
     private ShareServer server;

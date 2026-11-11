@@ -21,7 +21,7 @@
             android:fontFamily="sans-serif-light"
             android:text="@string/app_name"
             android:textColor="#FFFFFF"
-            android:textSize="30sp" />
+            android:textSize="@dimen/head_title" />
 
         <TextView
             android:id="@+id/status"
@@ -31,7 +31,7 @@
             android:layout_weight="1"
             android:singleLine="true"
             android:textColor="#B3FFFFFF"
-            android:textSize="16sp" />
+            android:textSize="@dimen/head_status" />
 
         <TextView
             android:id="@+id/rescan"
@@ -46,7 +46,7 @@
             android:paddingBottom="7dp"
             android:text="@string/rescan"
             android:textColor="@color/category_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/head_button" />
 
         <!-- Settings: search, get favourites from phone, picture, about -->
         <ImageView
@@ -70,7 +70,7 @@
         android:layout_marginTop="2dp"
         android:text="@string/hint"
         android:textColor="#66FFFFFF"
-        android:textSize="13sp" />
+        android:textSize="@dimen/head_hint" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -81,7 +81,7 @@
 
         <!-- Categories -->
         <ScrollView
-            android:layout_width="236dp"
+            android:layout_width="@dimen/cat_w"
             android:layout_height="match_parent"
             android:paddingBottom="24dp"
             android:clipToPadding="false"
@@ -107,7 +107,7 @@
                 android:layout_height="match_parent"
                 android:clipChildren="false"
                 android:clipToPadding="false"
-                android:columnWidth="172dp"
+                android:columnWidth="@dimen/ch_col"
                 android:horizontalSpacing="10dp"
                 android:listSelector="@android:color/transparent"
                 android:numColumns="auto_fit"
@@ -125,7 +125,7 @@
                 android:gravity="center"
                 android:maxWidth="420dp"
                 android:textColor="#B3FFFFFF"
-                android:textSize="18sp"
+                android:textSize="@dimen/empty_text"
                 android:visibility="gone" />
         </FrameLayout>
     </LinearLayout>

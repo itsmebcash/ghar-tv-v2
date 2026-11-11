@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class Scanner {
 
     interface Listener {
-        /** Called from worker threads. */
-        void onChecked(Channel c, boolean working);
+        /** Called from worker threads; result is Probe.OK, DEAD or UNSURE (after a second, slower try). */
+        void onChecked(Channel c, int result);
 
         /** Called once, from a worker thread, when every channel has been checked. */
         void onFinished();
@@ -32,16 +32,29 @@ final class Scanner {
             return;
         }
         AtomicInteger remaining = new AtomicInteger(channels.size());
-        for (Channel c : channels) {
+        for (Channel c : channels) submit(c, false, remaining, listener);
+    }
+
+    /** A slow first answer gets one more, more patient try before the channel is judged. */
+    private void submit(Channel c, boolean retry, AtomicInteger remaining, Listener listener) {
+        try {
             pool.execute(() -> {
                 if (cancelled) return;
-                boolean ok = Probe.check(c);
+                int result = Probe.check(c, retry ? Probe.SLOW_TIMEOUT_MS : Probe.TIMEOUT_MS);
                 if (cancelled) return;
-                listener.onChecked(c, ok);
-                if (remaining.decrementAndGet() == 0) listener.onFinished();
+                if (result == Probe.UNSURE && !retry) {
+                    submit(c, true, remaining, listener);
+                    return;
+                }
+                listener.onChecked(c, result);
+                if (remaining.decrementAndGet() == 0) {
+                    listener.onFinished();
+                    pool.shutdown();
+                }
             });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // cancelled
         }
-        pool.shutdown();
     }
 
     void cancel() {
