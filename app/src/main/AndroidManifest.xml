@@ -24,6 +24,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Ghar Player: only Ghar apps signed with the same key (Ghar Launcher) may read what's playing or control it -->
+    <permission
+        android:name="com.ghar.player.permission.NOW_PLAYING"
+        android:description="@string/gp_permission_description"
+        android:label="@string/gp_permission_label"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.ghar.player.permission.NOW_PLAYING" />
+    <!-- Ghar Player: find the phone (Bcash Player) on the Wi-Fi, play music in the background -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Many free IPTV streams are plain http://, so cleartext must be allowed -->
     <application
         android:allowBackup="true"
@@ -34,8 +47,9 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
 
+        <!-- First screen: TV channels, or music and FM (Ghar Player)? -->
         <activity
-            android:name=".MainActivity"
+            android:name=".StartActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|uiMode"
             android:exported="true"
             android:launchMode="singleTask">
@@ -45,6 +59,12 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask" />
 
         <activity
             android:name=".PlayerActivity"
@@ -101,5 +121,41 @@
             android:name=".ScanService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- ===== Ghar Player: music from Bcash Player on the phone, and FM radio ===== -->
+        <activity
+            android:name="com.ghar.player.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape"
+            android:theme="@style/Gp_AppTheme" />
+
+        <service
+            android:name="com.ghar.player.PlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <!-- What's playing, for Ghar Launcher's music card (Ghar apps only) -->
+        <provider
+            android:name="com.ghar.player.NowPlayingProvider"
+            android:authorities="com.ghar.tv.nowplaying"
+            android:exported="true"
+            android:readPermission="com.ghar.player.permission.NOW_PLAYING" />
+
+        <receiver
+            android:name="com.ghar.player.ControlReceiver"
+            android:exported="true"
+            android:permission="com.ghar.player.permission.NOW_PLAYING">
+            <intent-filter>
+                <action android:name="com.ghar.player.action.TOGGLE" />
+                <action android:name="com.ghar.player.action.NEXT" />
+                <action android:name="com.ghar.player.action.PREVIOUS" />
+                <action android:name="com.ghar.player.action.STOP" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

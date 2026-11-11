@@ -172,4 +172,12 @@
     <string name="scan_notif_title">Ghar TV: checking channels</string>
     <string name="scan_notif_starting">Starting the channel check…</string>
     <string name="scan_notif_progress">%1$s of %2$s checked · %3$s working</string>
+    <string name="start_title">Ghar</string>
+    <string name="start_question">Watch or listen?</string>
+    <string name="start_tv">TV channels</string>
+    <string name="start_tv_sub">Nepali, Indian and world channels</string>
+    <string name="start_music">Music and FM</string>
+    <string name="start_music_sub">Songs from your phone (Bcash Player) and FM radio</string>
+    <string name="start_playing">♪ Playing now: %1$s</string>
+    <string name="credit">Concept by Bikash Sharma, Imprintfy Tech.</string>
 </resources>

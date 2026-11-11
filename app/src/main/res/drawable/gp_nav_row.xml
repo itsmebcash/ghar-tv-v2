@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true"><shape><corners android:radius="12dp" /><solid android:color="#FFFFFFFF" /></shape></item>
+    <item android:state_activated="true"><shape><corners android:radius="12dp" /><solid android:color="#26FFFFFF" /></shape></item>
+    <item android:drawable="@android:color/transparent" />
+</selector>

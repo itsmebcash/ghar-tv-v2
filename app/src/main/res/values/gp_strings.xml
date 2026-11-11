@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gp_app_name">Ghar Player</string>
+    <string name="gp_notification_text">Music for your home</string>
+    <string name="gp_notif_playing">Playing on Ghar Player</string>
+    <string name="gp_notif_paused">Paused</string>
+    <string name="gp_permission_label">Ghar Player now playing</string>
+    <string name="gp_permission_description">See what Ghar Player is playing and control it (for Ghar Launcher)</string>
+    <string name="gp_back_again">Press Back again to go to the TV home</string>
+    <string name="gp_back_again_playing">Press Back again to go to the TV home. The music keeps playing; find it on the Ghar Launcher home.</string>
+    <string name="gp_back">Back</string>
+    <string name="gp_ok">OK</string>
+    <string name="gp_cancel">Cancel</string>
+    <string name="gp_save">Save</string>
+
+    <!-- Now Playing -->
+    <string name="gp_now_playing">Now playing</string>
+    <string name="gp_now_playing_open">Now playing</string>
+    <string name="gp_now_playing_of">%1$d of %2$d · %3$s</string>
+    <string name="gp_nothing_playing">Nothing playing</string>
+    <string name="gp_nothing_playing_hint">Pick songs on your phone, or press Menu for the library</string>
+    <string name="gp_on_tv">On this TV</string>
+    <string name="gp_from_phone">From phone</string>
+    <string name="gp_unknown_title">Unknown song</string>
+    <string name="gp_unknown_artist">Unknown artist</string>
+    <string name="gp_cant_play">Couldn\'t play that song, skipping</string>
+    <string name="gp_play">Play</string>
+    <string name="gp_pause">Pause</string>
+    <string name="gp_next">Next</string>
+    <string name="gp_previous">Previous</string>
+    <string name="gp_shuffle">Shuffle</string>
+    <string name="gp_shuffle_on">Shuffle on</string>
+    <string name="gp_shuffle_off">Shuffle off</string>
+    <string name="gp_repeat">Repeat</string>
+    <string name="gp_repeat_off">Repeat off</string>
+    <string name="gp_repeat_all">Repeat all</string>
+    <string name="gp_repeat_one">Repeat this song</string>
+    <string name="gp_favourite">Favourite</string>
+    <string name="gp_saved">Saved</string>
+    <string name="gp_fav_added">Added to favourites</string>
+    <string name="gp_fav_removed">Removed from favourites</string>
+    <string name="gp_seek_hint">◀ ▶ to seek · hold to skip faster</string>
+    <string name="gp_sleep_timer">Sleep timer</string>
+    <string name="gp_sleep_off">Sleep off</string>
+    <string name="gp_sleep_left">%1$d min</string>
+    <string name="gp_sleep_end_short">End of song</string>
+    <string name="gp_sleep_end_of_song">At the end of this song</string>
+    <string name="gp_sleep_minutes">%1$d minutes</string>
+    <string name="gp_sleep_set">Music stops: %1$s</string>
+    <string name="gp_empty_title">Let\'s play some music</string>
+    <string name="gp_empty_text">No songs found yet. Plug in a USB drive with MP3s, or pair your phone to play its music here.</string>
+    <string name="gp_empty_text_songs">%1$d songs ready on this TV. Open the library to pick one.</string>
+    <string name="gp_scanning">Looking for music…</string>
+    <string name="gp_open_library">Open library</string>
+
+    <!-- Library -->
+    <string name="gp_library">Library</string>
+    <string name="gp_library_hint">OK to play · hold OK for options</string>
+    <string name="gp_songs">Songs</string>
+    <string name="gp_playlists">Playlists</string>
+    <string name="gp_favourites">Favourites</string>
+    <string name="gp_recent">Recently played</string>
+    <string name="gp_folders">Folders &amp; USB</string>
+    <string name="gp_folder">Folder</string>
+    <string name="gp_top_folder">Main folder</string>
+    <string name="gp_up_next">Up next</string>
+    <string name="gp_settings">Settings</string>
+    <string name="gp_mini_hint">Pick a song to start</string>
+    <string name="gp_empty_songs">No songs found yet. Plug in a USB drive with MP3s, or choose Settings › Rescan.</string>
+    <string name="gp_empty_favourites">Hold OK on a song and choose Add to favourites.</string>
+    <string name="gp_empty_recent">Songs you play will show up here.</string>
+    <string name="gp_empty_queue">The queue is empty. Hold OK on a song to add it.</string>
+    <string name="gp_empty_playlist">This playlist is empty.</string>
+    <string name="gp_empty_folders">No music folders found.</string>
+    <string name="gp_play_all">Play</string>
+    <string name="gp_shuffle_all">Shuffle play</string>
+    <string name="gp_play_now">Play now</string>
+    <string name="gp_play_next">Play next</string>
+    <string name="gp_will_play_next">Plays next</string>
+    <string name="gp_add_to_queue">Add to queue</string>
+    <string name="gp_add_to_playlist">Add to playlist</string>
+    <string name="gp_add_favourite">Add to favourites</string>
+    <string name="gp_remove_favourite">Remove from favourites</string>
+    <string name="gp_move_up">Move up</string>
+    <string name="gp_move_down">Move down</string>
+    <string name="gp_remove_from_queue">Remove from queue</string>
+    <string name="gp_remove_from_playlist">Remove from playlist</string>
+    <string name="gp_clear_queue">Clear queue</string>
+    <string name="gp_new_playlist">New playlist</string>
+    <string name="gp_new_playlist_plus">+ New playlist</string>
+    <string name="gp_new_playlist_hint">Make a list of your favourite songs</string>
+    <string name="gp_playlist_name">Playlist name</string>
+    <string name="gp_playlist_created">Created %1$s</string>
+    <string name="gp_added_to">Added to %1$s</string>
+    <string name="gp_already_in">Already in %1$s</string>
+    <string name="gp_rename">Rename</string>
+    <string name="gp_delete">Delete</string>
+    <string name="gp_delete_playlist_q">Delete \"%1$s\"?</string>
+    <string name="gp_rescan">Rescan for music</string>
+    <string name="gp_about">About</string>
+    <string name="gp_about_text">Ghar Player %1$s\n\nPlays the music on your TV and USB drives, and from your phone. Use the Ghar Player Remote app on your phone to control the music, manage playlists and send songs. No account or login needed.\n\nConcept by Bikash Sharma, Imprintfy Tech.</string>
+
+    <plurals name="n_songs">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <plurals name="n_playlists">
+        <item quantity="one">%1$d playlist</item>
+        <item quantity="other">%1$d playlists</item>
+    </plurals>
+    <plurals name="n_folders">
+        <item quantity="one">%1$d folder</item>
+        <item quantity="other">%1$d folders</item>
+    </plurals>
+    <plurals name="added_to_queue">
+        <item quantity="one">Added to queue</item>
+        <item quantity="other">Added %1$d songs to queue</item>
+    </plurals>
+
+    <!-- Pairing -->
+    <string name="gp_pair_phone">Pair a phone</string>
+    <string name="gp_pair_title">Pair your phone</string>
+    <string name="gp_pair_steps">1. Install Ghar Player Remote on your phone.\n2. Join the same Wi-Fi as this TV.\n3. Scan this QR code, or pick this TV and type the code.</string>
+    <string name="gp_tv_address">%1$s · %2$s</string>
+    <string name="gp_no_network">Connect this TV to Wi-Fi to pair a phone</string>
+    <string name="gp_paired_phones">Paired phones</string>
+    <string name="gp_no_phones">None yet</string>
+    <string name="gp_phone_row">%1$s · unpair</string>
+    <string name="gp_paired_with">Paired with %1$s ✓</string>
+    <string name="gp_pair_locked">Too many wrong codes. Choose New code to try again.</string>
+    <string name="gp_new_code">New code</string>
+    <string name="gp_qr_desc">QR code for pairing</string>
+    <string name="gp_unpair">Unpair</string>
+    <string name="gp_unpair_q">Unpair %1$s?</string>
+    <string name="gp_unpair_text">That phone will need a new code to control this TV again.</string>
+</resources>

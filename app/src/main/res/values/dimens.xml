@@ -32,4 +32,12 @@
     <dimen name="pcat_h">48dp</dimen>
     <dimen name="pcat_name">16sp</dimen>
     <dimen name="pcat_count">14sp</dimen>
+    <!-- Start screen (TV or music) -->
+    <dimen name="start_title">34sp</dimen>
+    <dimen name="start_question">18sp</dimen>
+    <dimen name="start_card_w">360dp</dimen>
+    <dimen name="start_card_h">250dp</dimen>
+    <dimen name="start_icon">56sp</dimen>
+    <dimen name="start_card_title">28sp</dimen>
+    <dimen name="start_card_sub">16sp</dimen>
 </resources>

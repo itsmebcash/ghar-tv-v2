@@ -170,4 +170,12 @@
     <string name="scan_notif_title">घर टिभी: च्यानल जाँच हुँदैछ</string>
     <string name="scan_notif_starting">च्यानल जाँच सुरु हुँदैछ…</string>
     <string name="scan_notif_progress">%2$s मध्ये %1$s जाँचियो · %3$s चल्छन्</string>
+    <string name="start_title">घर</string>
+    <string name="start_question">के हेर्ने वा सुन्ने?</string>
+    <string name="start_tv">टिभी च्यानल</string>
+    <string name="start_tv_sub">नेपाली, भारतीय र विश्वका च्यानल</string>
+    <string name="start_music">गीत र एफएम</string>
+    <string name="start_music_sub">फोनबाट गीत (Bcash Player) र एफएम रेडियो</string>
+    <string name="start_playing">♪ अहिले बज्दैछ: %1$s</string>
+    <string name="credit">Concept by Bikash Sharma, Imprintfy Tech.</string>
 </resources>
