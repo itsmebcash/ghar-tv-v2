@@ -55,6 +55,13 @@ jobs:
             adb exec-out screencap -p > shot-5-music-nav.png
             adb shell monkey -p com.ghar.tv -c android.intent.category.LEANBACK_LAUNCHER 1; sleep 5
             adb exec-out screencap -p > shot-6-start-again.png
+            adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 1
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 12
+            adb exec-out screencap -p > shot-7-music.png
+            adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 1; adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 2
+            adb exec-out screencap -p > shot-8-music-moved.png
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 15
+            adb exec-out screencap -p > shot-9-music-ok.png
             adb shell input keyevent KEYCODE_HOME; sleep 20
             echo "===== SERVICES AFTER LEAVING ====="; adb shell dumpsys activity services com.ghar.tv | grep -E "ServiceRecord|isForeground" || true
             adb logcat -d -b crash > crash.txt || true
