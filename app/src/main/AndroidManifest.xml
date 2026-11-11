@@ -19,6 +19,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- To tell "offline" from "channel broken", so channels aren't skipped while offline -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The channel check goes on after you leave the app (ScanService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Many free IPTV streams are plain http://, so cleartext must be allowed -->
     <application
@@ -93,5 +97,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ScanService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

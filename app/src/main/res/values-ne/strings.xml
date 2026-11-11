@@ -167,4 +167,7 @@
     <string name="cat_lifestyle">जीवनशैली र यात्रा</string>
     <string name="cat_other">अन्य</string>
     <string name="option_language">भाषा / Language: नेपाली</string>
+    <string name="scan_notif_title">घर टिभी: च्यानल जाँच हुँदैछ</string>
+    <string name="scan_notif_starting">च्यानल जाँच सुरु हुँदैछ…</string>
+    <string name="scan_notif_progress">%2$s मध्ये %1$s जाँचियो · %3$s चल्छन्</string>
 </resources>

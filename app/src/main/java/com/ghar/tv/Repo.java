@@ -86,6 +86,7 @@ final class Repo {
 
     private static final int THREADS_BROWSING = 12; // like Ghar TV Mobile: more at once makes good channels time out
     private static final int THREADS_WHILE_PLAYING = 2; // leave the bandwidth to the channel you watch
+    private static final int THREADS_IN_BACKGROUND = 6; // you're in another app: gentle
     private static final long STOP_WHEN_HIDDEN_MS = 3000;
 
     private static Repo instance;
@@ -118,6 +119,8 @@ final class Repo {
     private int ticks;
     private int visibleScreens;
     private boolean playbackActive;
+    /** ScanService is keeping the check going while Ghar TV is closed. */
+    private boolean background;
 
     private Repo(Context app) {
         this.app = app;
@@ -151,13 +154,31 @@ final class Repo {
         if (visibleScreens == 0) main.postDelayed(stopWhenHidden, STOP_WHEN_HIDDEN_MS);
     }
 
-    /** Leaving the app on purpose (Back from the player): stop now. */
+    /** Leaving the app on purpose (Back from the player): stop now, unless it goes on in the background. */
     void exitNow() {
         main.removeCallbacks(stopWhenHidden);
-        pauseScan();
+        stopWhenHidden.run();
     }
 
-    private final Runnable stopWhenHidden = this::pauseScan;
+    /** Hidden: stop the check, or (with ScanService) go on gently in the background. */
+    private final Runnable stopWhenHidden = () -> {
+        if (!background) {
+            pauseScan();
+        } else if (scanning) {
+            playbackActive = false; // nothing is playing any more
+            pauseScan();
+            resumeScanIfNeeded(); // restart with the background thread count
+        }
+    };
+
+    void backgroundStarted() {
+        background = true;
+    }
+
+    void backgroundStopped() {
+        background = false;
+        if (visibleScreens == 0) pauseScan();
+    }
 
     /** The player tells us when a video is playing, so the scan can be gentle. */
     void setPlaybackActive(boolean active) {
@@ -352,7 +373,9 @@ final class Repo {
             keep.addAll(cache.working.keySet());
         }
         keep.addAll(Store.favourites(app));
-        scanner = new Scanner(playbackActive ? THREADS_WHILE_PLAYING : THREADS_BROWSING);
+        scanner = new Scanner(playbackActive ? THREADS_WHILE_PLAYING
+                : visibleScreens == 0 ? THREADS_IN_BACKGROUND : THREADS_BROWSING);
+        if (visibleScreens > 0) ScanService.start(app); // keeps going if you leave the app
         scanner.start(list, new Scanner.Listener() {
             @Override
             public void onChecked(Channel c, int result) {

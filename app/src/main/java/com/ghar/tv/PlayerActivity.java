@@ -950,7 +950,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
             restoring = false;
             number.setText(String.valueOf(index + 1));
         }
-        refreshBrowse(false);
+        refreshBrowseGently();
         if (!repo.favouritesBackShown && repo.favouritesBack > 0) {
             repo.favouritesBackShown = true;
             favs = Store.favourites(this);
@@ -996,11 +996,59 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         }
     }
 
+    /*
+     * While the channel check runs, the list of working channels changes every second. Redrawing
+     * the channel list that often made browsing (playlists, categories) stutter and freeze while
+     * watching. Like the home screen: at most every few seconds, never while the remote is being
+     * pressed, not at all while the list is closed, and only when something actually changed.
+     */
+    private static final long BROWSE_GAP_MS = 4000;
+    private static final long QUIET_AFTER_KEY_MS = 2500;
+    private long lastBrowseRefresh, lastKeyAt;
+    private String countsKey = "";
+    private final Runnable deferredBrowse = this::refreshBrowseGently;
+
+    private void refreshBrowseGently() {
+        handler.removeCallbacks(deferredBrowse);
+        boolean open = panel.getVisibility() == View.VISIBLE || belowList.isShown();
+        if (!open) return; // refreshed when the list is opened
+        long now = android.os.SystemClock.uptimeMillis();
+        if (repo.scanning) {
+            long wait = Math.max(lastBrowseRefresh + BROWSE_GAP_MS, lastKeyAt + QUIET_AFTER_KEY_MS) - now;
+            if (wait > 0) {
+                handler.postDelayed(deferredBrowse, wait);
+                return;
+            }
+        }
+        lastBrowseRefresh = now;
+        List<Channel> next = repo.channels(browseCategory, Store.favourites(this));
+        if (sameList(next, browseList)) {
+            updateCategoryCountsIfChanged();
+            return;
+        }
+        refreshBrowse(false);
+    }
+
+    private static boolean sameList(List<Channel> a, List<Channel> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) if (!a.get(i).url.equals(b.get(i).url)) return false;
+        return true;
+    }
+
+    /** Counting goes through every channel for every category: only when something changed. */
+    private void updateCategoryCountsIfChanged() {
+        String key = repo.working.size() + "/" + favs.size() + "/" + categoryNames.size();
+        if (key.equals(countsKey)) return;
+        countsKey = key;
+        updateCategoryCounts();
+    }
+
     private void refreshBrowse(boolean toTop) {
         favs = Store.favourites(this);
         browseList.clear();
         browseList.addAll(repo.channels(browseCategory, favs));
-        updateCategoryCounts();
+        countsKey = "";
+        updateCategoryCountsIfChanged();
         TextView title = findViewById(R.id.panel_title);
         if (Repo.isSearch(browseCategory)) {
             title.setText(getString(R.string.search_results,
@@ -1112,6 +1160,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        lastKeyAt = android.os.SystemClock.uptimeMillis(); // the channel list waits while you browse
         // Last minute of the sleep timer: any button means "still watching".
         if (sleepWarning && event.getKeyCode() != KeyEvent.KEYCODE_BACK) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) keepWatching();

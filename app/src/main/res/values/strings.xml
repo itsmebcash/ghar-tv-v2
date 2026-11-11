@@ -169,4 +169,7 @@
     <string name="cat_lifestyle">Lifestyle</string>
     <string name="cat_other">Other</string>
     <string name="option_language">भाषा / Language: English</string>
+    <string name="scan_notif_title">Ghar TV: checking channels</string>
+    <string name="scan_notif_starting">Starting the channel check…</string>
+    <string name="scan_notif_progress">%1$s of %2$s checked · %3$s working</string>
 </resources>

@@ -15,8 +15,8 @@ android {
         applicationId 'com.ghar.tv'
         minSdk 21
         targetSdk 34
-        versionCode 23
-        versionName '3.4.1'
+        versionCode 24
+        versionName '3.4.2'
     }
 
     signingConfigs {
