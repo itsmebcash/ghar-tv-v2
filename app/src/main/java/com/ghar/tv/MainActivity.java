@@ -205,12 +205,6 @@ public class MainActivity extends Activity implements Repo.Listener {
     private final Runnable deferredRefresh = this::onRepoChanged;
 
     @Override
-    public boolean dispatchKeyEvent(android.view.KeyEvent e) {
-        lastKeyAt = android.os.SystemClock.uptimeMillis();
-        return super.dispatchKeyEvent(e);
-    }
-
-    @Override
     public void onRepoChanged() {
         long now = android.os.SystemClock.uptimeMillis();
         if (repo.scanning && repo.loaded && !shown.isEmpty()) {
@@ -380,6 +374,7 @@ public class MainActivity extends Activity implements Repo.Listener {
 
     @Override
     public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        lastKeyAt = android.os.SystemClock.uptimeMillis(); // the list waits while you browse
         if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_MENU && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
             showSettings();
             return true;
