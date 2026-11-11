@@ -33,6 +33,7 @@ final class Lang {
 
     /** Every screen's base context, in the chosen language. */
     static Context wrap(Context base) {
+        Channel.nepali = isNepali(base);
         Locale locale = new Locale(current(base));
         Configuration config = new Configuration(base.getResources().getConfiguration());
         if (Build.VERSION.SDK_INT >= 24) config.setLocales(new android.os.LocaleList(locale));

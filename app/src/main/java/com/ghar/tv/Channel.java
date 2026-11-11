@@ -69,17 +69,51 @@ final class Channel {
         return s == null || s.isEmpty() ? null : s;
     }
 
+    /** "News  ·  NP", or in Nepali "समाचार  ·  नेपाल" (see Lang). */
     String subtitle() {
         StringBuilder sb = new StringBuilder();
-        if (!categories.isEmpty()) sb.append(categories.get(0));
+        if (!categories.isEmpty()) sb.append(nepali ? genreNe(categories.get(0)) : categories.get(0));
         if (!country.isEmpty()) {
             if (sb.length() > 0) sb.append("  ·  ");
-            sb.append(country.toUpperCase(java.util.Locale.US));
+            sb.append(nepali ? countryNe(country) : country.toUpperCase(java.util.Locale.US));
         }
         if (quality != null) {
             if (sb.length() > 0) sb.append("  ·  ");
             sb.append(quality);
         }
         return sb.toString();
+    }
+
+    /** Set once at start from the app's language (Lang). */
+    static volatile boolean nepali;
+
+    private static final java.util.Map<String, String> GENRE_NE = new java.util.HashMap<>();
+    private static final java.util.Map<String, String> COUNTRY_NE = new java.util.HashMap<>();
+
+    static {
+        String[][] g = {{"News", "समाचार"}, {"Business", "व्यापार"}, {"Weather", "मौसम"}, {"Legislative", "संसद"},
+                {"Entertainment", "मनोरञ्जन"}, {"Movies", "चलचित्र"}, {"Series", "धारावाहिक"}, {"Comedy", "हास्य"},
+                {"Classic", "पुराना"}, {"Music", "गीत-संगीत"}, {"Sports", "खेलकुद"}, {"Kids", "बालबालिका"},
+                {"Animation", "कार्टुन"}, {"Family", "परिवार"}, {"Education", "शिक्षा"}, {"Documentary", "वृत्तचित्र"},
+                {"Science", "विज्ञान"}, {"Travel", "यात्रा"}, {"Lifestyle", "जीवनशैली"}, {"Cooking", "खाना"},
+                {"Culture", "संस्कृति"}, {"Outdoor", "बाहिरी"}, {"Relax", "आराम"}, {"Shop", "किनमेल"}, {"Auto", "गाडी"},
+                {"Religious", "धार्मिक"}, {"General", "सामान्य"}, {"Other", "अन्य"}, {"Public", "सार्वजनिक"},
+                {"Undefined", "अन्य"}};
+        for (String[] p : g) GENRE_NE.put(p[0], p[1]);
+        String[][] c = {{"np", "नेपाल"}, {"in", "भारत"}, {"us", "अमेरिका"}, {"gb", "बेलायत"}, {"uk", "बेलायत"},
+                {"pk", "पाकिस्तान"}, {"bd", "बंगलादेश"}, {"lk", "श्रीलंका"}, {"cn", "चीन"}, {"jp", "जापान"},
+                {"kr", "कोरिया"}, {"au", "अस्ट्रेलिया"}, {"ae", "युएई"}, {"qa", "कतार"}, {"sa", "साउदी"},
+                {"fr", "फ्रान्स"}, {"de", "जर्मनी"}, {"ca", "क्यानडा"}, {"bt", "भुटान"}, {"int", "अन्तर्राष्ट्रिय"}};
+        for (String[] p : c) COUNTRY_NE.put(p[0], p[1]);
+    }
+
+    private static String genreNe(String g) {
+        String n = GENRE_NE.get(g);
+        return n != null ? n : g;
+    }
+
+    private static String countryNe(String code) {
+        String n = COUNTRY_NE.get(code.toLowerCase(java.util.Locale.US));
+        return n != null ? n : code.toUpperCase(java.util.Locale.US);
     }
 }
