@@ -55,6 +55,8 @@ jobs:
             for i in 1 2 3 4 5; do adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 6; done
             adb exec-out screencap -p > shot-6-later.png
             adb shell dumpsys meminfo com.ghar.tv | head -30
+            adb shell input keyevent KEYCODE_HOME; sleep 20
+            echo "===== SERVICES AFTER LEAVING ====="; adb shell dumpsys activity services com.ghar.tv | grep -E "ServiceRecord|isForeground" || true
             adb logcat -d -b crash > crash.txt || true
             adb shell run-as com.ghar.tv cat files/crash-report.txt > report.txt 2>/dev/null || true
             echo "===== CRASH BUFFER ====="; cat crash.txt
