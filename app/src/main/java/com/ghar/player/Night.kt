@@ -334,24 +334,26 @@ class SegmentClock(c: Context) : View(c) {
 }
 
 /**
- * Behind the night clock: a few soft, blurred specks of light floating slowly, breathing very
- * gently with the music and blinking faintly. Kept very dim so the room stays dark.
+ * Behind the night clock: white specks of light, like the stars in the picture, wandering
+ * slowly in random directions. Almost dark when it is quiet; they brighten and flicker with the
+ * music, and glow a little more on each beat.
  */
 class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
-    private class P(var x: Float, var y: Float, var vx: Float, var vy: Float, val r: Float, val phase: Float, val warm: Boolean)
-    private val rnd = java.util.Random()
+    private class P(var x: Float, var y: Float, var vx: Float, var vy: Float, val r: Float, val phase: Float, val star: Boolean)
     private val d = c.resources.displayMetrics.density
-    private val ps = List(48) {
-        P(rnd.nextFloat(), rnd.nextFloat(), (rnd.nextFloat() - 0.5f) * 0.012f, (rnd.nextFloat() - 0.5f) * 0.010f,
-            10f + rnd.nextFloat() * 34f, rnd.nextFloat() * 6.28f, rnd.nextFloat() < 0.4f)
+    private val ps = List(64) {
+        val star = rnd.nextFloat() < 0.6f            // small sharp specks; the rest soft and blurred
+        P(rnd.nextFloat(), rnd.nextFloat(), (rnd.nextFloat() - 0.5f) * 0.02f, (rnd.nextFloat() - 0.5f) * 0.016f,
+            if (star) 3f + rnd.nextFloat() * 6f else 12f + rnd.nextFloat() * 24f, rnd.nextFloat() * 6.28f, star)
     }
     private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
     private val dst = android.graphics.Rect()
-    /** One blurred dot, drawn scaled for every speck (cheap blur). */
+    /** One white blurred dot, drawn scaled for every speck (cheap blur). */
     private val sprite: android.graphics.Bitmap = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888).also { b ->
         val cv = Canvas(b)
         val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-        p.shader = android.graphics.RadialGradient(48f, 48f, 48f, intArrayOf(Color.WHITE, 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.3f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        p.shader = android.graphics.RadialGradient(48f, 48f, 48f, intArrayOf(Color.WHITE, 0xAAFFFFFF.toInt(), 0x33FFFFFF, 0x00FFFFFF),
+            floatArrayOf(0f, 0.15f, 0.45f, 1f), android.graphics.Shader.TileMode.CLAMP)
         cv.drawCircle(48f, 48f, 48f, p)
     }
     private var level = 0f
@@ -370,17 +372,18 @@ class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
         last = now
         t += dt
         val fresh = System.currentTimeMillis() - AudioLevel.updatedAt < 500
-        val heard = if (fresh) AudioLevel.level else 0f
-        level += (heard - level) * 0.12f
+        val heard = if (fresh) (AudioLevel.level * 1.6f).coerceAtMost(1f) else 0f
+        level += (heard - level) * 0.15f
         avg += (heard - avg) * (dt * 0.8f)
-        // A mild "beat": loudness clearly above its recent average gives a small glow.
-        if (heard > avg * 1.3f && heard > 0.12f) pulse = (pulse + 0.25f).coerceAtMost(1f)
-        pulse = (pulse - dt * 1.2f).coerceAtLeast(0f)
-        val sp = 0.6f + level * 0.8f
+        // A "beat": loudness clearly above its recent average gives a glow.
+        if (heard > avg * 1.3f && heard > 0.12f) pulse = (pulse + 0.35f).coerceAtMost(1f)
+        pulse = (pulse - dt * 1.5f).coerceAtLeast(0f)
+        val sp = 0.7f + level * 1.3f + pulse * 0.6f
         ps.forEach { p ->
-            p.vx += (rnd.nextFloat() - 0.5f) * 0.004f * dt
-            p.vy += (rnd.nextFloat() - 0.5f) * 0.004f * dt
-            p.vx = p.vx.coerceIn(-0.015f, 0.015f); p.vy = p.vy.coerceIn(-0.012f, 0.012f)
+            // Random wandering: each speck keeps turning a little, never in a straight line.
+            p.vx += (rnd.nextFloat() - 0.5f) * 0.03f * dt
+            p.vy += (rnd.nextFloat() - 0.5f) * 0.03f * dt
+            p.vx = p.vx.coerceIn(-0.02f, 0.02f); p.vy = p.vy.coerceIn(-0.016f, 0.016f)
             p.x += p.vx * dt * sp; p.y += p.vy * dt * sp
             if (p.x < -0.05f) p.x = 1.05f else if (p.x > 1.05f) p.x = -0.05f
             if (p.y < -0.05f) p.y = 1.05f else if (p.y > 1.05f) p.y = -0.05f
@@ -392,14 +395,12 @@ class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
     override fun onDraw(cv: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         ps.forEach { p ->
-            // Very subtle blinking, a touch brighter with the music.
-            val blink = 0.55f + 0.45f * kotlin.math.sin(t * 0.7f + p.phase)
-            val a = (0.08f + 0.10f * blink + 0.08f * level + 0.08f * pulse).coerceIn(0f, 0.34f)
+            // Twinkle (faster with the music); dim when quiet, bright when loud.
+            val blink = 0.5f + 0.5f * kotlin.math.sin(t * (0.8f + level * 2.5f) + p.phase)
+            val a = if (p.star) (0.06f + 0.10f * blink + 0.55f * level * blink + 0.30f * pulse).coerceIn(0f, 0.85f)
+                    else (0.03f + 0.05f * blink + 0.22f * level + 0.15f * pulse).coerceIn(0f, 0.4f)
             paint.alpha = (a * 255).toInt()
-            paint.colorFilter = android.graphics.PorterDuffColorFilter(
-                if (p.warm) Color.rgb(255, 170, 90) else Color.rgb(170, 180, 210), android.graphics.PorterDuff.Mode.MULTIPLY
-            )
-            val rad = p.r * d * (1f + 0.15f * pulse)
+            val rad = p.r * d * (1f + 0.25f * pulse + 0.2f * level)
             val cx = p.x * w; val cy = p.y * h
             dst.set((cx - rad).toInt(), (cy - rad).toInt(), (cx + rad).toInt(), (cy + rad).toInt())
             cv.drawBitmap(sprite, null, dst, paint)
@@ -409,7 +410,8 @@ class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
 
 /**
  * Night mode: black screen with the time, date, the radio station and rotating news headlines
- * in dim grey. The picture moves a little every minute so nothing burns into the screen.
+ * in dim grey, all held still in the middle of the screen. While the radio plays, a red dot
+ * blinks beside its name, which is written in an old typewriter face and slowly shines.
  */
 class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     private val main = Handler(Looper.getMainLooper())
@@ -418,13 +420,18 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     private val weather: TextView
     private val temp: TextView
     private val station: TextView
+    private val dot: TextView
+    private val stationRow: LinearLayout
+    private var blink: android.animation.ObjectAnimator? = null
+    private var shine: android.animation.ValueAnimator? = null
+    private val shineMatrix = android.graphics.Matrix()
+    private var shineW = 0f
     private val news: TextView
     private val newsSource: TextView
     private val box = LinearLayout(c)
     private val particles = NightParticles(c)
     private val forecast: TextView
     private var headline = 0
-    private val rnd = java.util.Random()
 
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
     private fun tv(size: Float, color: String) = TextView(context).apply {
@@ -435,9 +442,9 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     init {
         setBackgroundColor(Color.BLACK)
         isFocusable = true
-        // Kailash under the stars, dimmed so the room stays dark (photo: Isha Foundation)
+        // Adiyogi and Kedarnath under the Milky Way, dimmed so the room stays dark
         addView(android.widget.ImageView(c).apply {
-            setImageResource(R.drawable.gp_night_kailash)
+            setImageResource(R.drawable.gp_night_adiyogi)
             scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
             alpha = 0.42f
         }, LayoutParams(-1, -1))
@@ -447,8 +454,6 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
                 intArrayOf(0x33000000, 0x66000000, 0xB3000000.toInt()))
         }, LayoutParams(-1, -1))
         addView(particles, LayoutParams(-1, -1))
-        addView(tv(11f, "#55FFFFFF").apply { text = "Kailash · photo: Isha Foundation (isha.sadhguru.org)" },
-            LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(18f), dp(12f)) })
         box.orientation = LinearLayout.VERTICAL
         box.gravity = Gravity.CENTER_HORIZONTAL
         box.addView(clock, LinearLayout.LayoutParams(dp(560f), dp(150f)))
@@ -463,15 +468,22 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
         box.addView(weather)
         forecast = tv(17f, "#7A7A7A").apply { setPadding(0, dp(4f), 0, 0) }
         box.addView(forecast)
-        station = tv(32f, "#C9A45C").apply {
-            setPadding(0, dp(10f), 0, 0); maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        // Now playing: a blinking red "on air" dot and the station's name in an old typewriter face.
+        stationRow = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(12f), 0, 0) }
+        dot = tv(24f, "#FF2A2A").apply { text = "●"; typeface = android.graphics.Typeface.DEFAULT; setPadding(0, 0, dp(16f), 0) }
+        station = tv(38f, "#E8C27A").apply {
+            maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(780f)
+            typeface = runCatching { android.graphics.Typeface.createFromAsset(c.assets, "gp_special_elite.ttf") }
+                .getOrDefault(android.graphics.Typeface.SERIF)
+            letterSpacing = 0.04f
         }
-        box.addView(station, LinearLayout.LayoutParams(dp(820f), -2))
+        stationRow.addView(dot)
+        stationRow.addView(station)
+        box.addView(stationRow)
         news = tv(36f, "#B0B0B0").apply { setPadding(0, dp(16f), 0, 0); maxLines = 2; typeface = android.graphics.Typeface.DEFAULT; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
         box.addView(news, LinearLayout.LayoutParams(dp(880f), -2))
         newsSource = tv(15f, "#6A6A6A").apply { setPadding(0, dp(6f), 0, 0) }
-        listOf(date, temp, weather, forecast, station, news, newsSource).forEach { it.setShadowLayer(10f, 0f, 0f, Color.parseColor("#E6000000")) }
+        listOf(date, temp, weather, forecast, news, newsSource).forEach { it.setShadowLayer(10f, 0f, 0f, Color.parseColor("#E6000000")) }
         box.addView(newsSource)
         addView(box, LayoutParams(-2, -2, Gravity.CENTER))
     }
@@ -480,6 +492,7 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
         visibility = VISIBLE
         requestFocus()
         particles.start()
+        startOnAir()
         tick.run()
         rotate.run()
         Thread { NewsFeed.refresh(true); main.post { if (isShown && news.text.isNullOrEmpty()) rotate.run() } }.start()
@@ -489,7 +502,39 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     fun hide() {
         visibility = GONE
         particles.stop()
+        blink?.cancel(); shine?.cancel(); blink = null; shine = null
         main.removeCallbacks(tick); main.removeCallbacks(rotate)
+    }
+
+    /** The red dot blinks like an "on air" lamp; a soft light sweeps across the name and it glows. */
+    private fun startOnAir() {
+        blink?.cancel(); shine?.cancel()
+        blink = android.animation.ObjectAnimator.ofFloat(dot, "alpha", 1f, 0.12f).apply {
+            duration = 750; repeatMode = android.animation.ValueAnimator.REVERSE
+            repeatCount = android.animation.ValueAnimator.INFINITE; start()
+        }
+        shine = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 3200; repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener { va ->
+                val v = va.animatedValue as Float
+                val w = station.width.toFloat()
+                if (w < 10f) return@addUpdateListener
+                val base = Color.parseColor("#E8C27A")
+                val sh = (if (shineW == w) station.paint.shader as? android.graphics.LinearGradient else null)
+                    ?: android.graphics.LinearGradient(0f, 0f, w * 0.5f, 0f,
+                        intArrayOf(base, Color.parseColor("#FFF6DC"), base), floatArrayOf(0.2f, 0.5f, 0.8f),
+                        android.graphics.Shader.TileMode.CLAMP).also { station.paint.shader = it; shineW = w }
+                // the bright band crosses the name, then rests off to the side for a moment
+                shineMatrix.setTranslate(-w * 0.5f + v * w * 2.2f, 0f)
+                sh.setLocalMatrix(shineMatrix)
+                // the glow breathes with it
+                val g = 0.5f + 0.5f * kotlin.math.sin(v * 2 * Math.PI).toFloat()
+                station.setShadowLayer(8f + 18f * g, 0f, 0f, Color.argb((120 + 100 * g).toInt(), 255, 170, 60))
+                station.invalidate()
+            }
+            start()
+        }
     }
 
     val isOn get() = visibility == VISIBLE
@@ -506,21 +551,15 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
                 else SimpleDateFormat("EEEE, d MMMM", Locale("ne", "NP")).format(Date())
             val n = PlaybackService.instance?.now()
             val it = n?.item
-            station.text = when {
-                it == null -> ""
-                !n.playing -> ""
-                it.stream.isNotEmpty() -> "📻  " + it.title
-                else -> "♪  " + it.title
-            }
+            val title = if (it == null || !n.playing) "" else it.title
+            if (station.text.toString() != title) { station.text = title; shineW = 0f }
+            stationRow.visibility = if (title.isEmpty()) View.GONE else View.VISIBLE
             temp.text = Weather.tempText()
             val ampm = if (now.get(Calendar.AM_PM) == Calendar.AM) TvRadio.t("बिहान", "AM") else TvRadio.t("साँझ", "PM")
             weather.text = listOf(ampm, Weather.detailText()).filter { it.isNotBlank() }.joinToString("   ·   ")
             forecast.text = Weather.forecastText()
-            // Burn-in care: drift a little every minute; weather every 30 minutes.
-            if (now.get(Calendar.SECOND) == 0) {
-                if (now.get(Calendar.MINUTE) % 30 == 0) Thread { Weather.refresh() }.start()
-                box.animate().translationX((rnd.nextFloat() - 0.5f) * dp(80f)).translationY((rnd.nextFloat() - 0.5f) * dp(30f)).setDuration(3000).start()
-            }
+            // Weather every 30 minutes. (Everything stays still in the middle: no drifting.)
+            if (now.get(Calendar.SECOND) == 0 && now.get(Calendar.MINUTE) % 30 == 0) Thread { Weather.refresh() }.start()
             main.postDelayed(this, 1000)
         }
     }
