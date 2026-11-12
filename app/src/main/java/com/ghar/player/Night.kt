@@ -1,5 +1,7 @@
 package com.ghar.player
 
+import com.ghar.tv.R
+
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
