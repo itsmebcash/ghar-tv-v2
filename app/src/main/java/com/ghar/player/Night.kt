@@ -340,6 +340,7 @@ class SegmentClock(c: Context) : View(c) {
  */
 class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
     private class P(var x: Float, var y: Float, var vx: Float, var vy: Float, val r: Float, val phase: Float, val star: Boolean)
+    private val rnd = java.util.Random()
     private val d = c.resources.displayMetrics.density
     private val ps = List(64) {
         val star = rnd.nextFloat() < 0.6f            // small sharp specks; the rest soft and blurred
