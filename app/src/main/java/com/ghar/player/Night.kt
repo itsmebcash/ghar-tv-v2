@@ -451,11 +451,11 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
             LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(18f), dp(12f)) })
         box.orientation = LinearLayout.VERTICAL
         box.gravity = Gravity.CENTER_HORIZONTAL
-        box.addView(clock, LinearLayout.LayoutParams(dp(680f), dp(190f)))
+        box.addView(clock, LinearLayout.LayoutParams(dp(560f), dp(150f)))
         // Nepali date and the temperature: same size, side by side, readable from the sofa.
         val row = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        date = tv(44f, "#A8A8A8").apply { setPadding(0, dp(10f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
-        temp = tv(44f, "#A8A8A8").apply { setPadding(dp(40f), dp(10f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        date = tv(44f, "#A8A8A8").apply { setPadding(0, dp(6f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        temp = tv(44f, "#A8A8A8").apply { setPadding(dp(40f), dp(6f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
         row.addView(date)
         row.addView(temp)
         box.addView(row)
@@ -464,11 +464,11 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
         forecast = tv(17f, "#7A7A7A").apply { setPadding(0, dp(4f), 0, 0) }
         box.addView(forecast)
         station = tv(32f, "#C9A45C").apply {
-            setPadding(0, dp(14f), 0, 0); maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(10f), 0, 0); maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         box.addView(station, LinearLayout.LayoutParams(dp(820f), -2))
-        news = tv(36f, "#B0B0B0").apply { setPadding(0, dp(20f), 0, 0); maxLines = 3; typeface = android.graphics.Typeface.DEFAULT; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
+        news = tv(36f, "#B0B0B0").apply { setPadding(0, dp(16f), 0, 0); maxLines = 2; typeface = android.graphics.Typeface.DEFAULT; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
         box.addView(news, LinearLayout.LayoutParams(dp(880f), -2))
         newsSource = tv(15f, "#6A6A6A").apply { setPadding(0, dp(6f), 0, 0) }
         listOf(date, temp, weather, forecast, station, news, newsSource).forEach { it.setShadowLayer(10f, 0f, 0f, Color.parseColor("#E6000000")) }
@@ -519,7 +519,7 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
             // Burn-in care: drift a little every minute; weather every 30 minutes.
             if (now.get(Calendar.SECOND) == 0) {
                 if (now.get(Calendar.MINUTE) % 30 == 0) Thread { Weather.refresh() }.start()
-                box.animate().translationX((rnd.nextFloat() - 0.5f) * dp(80f)).translationY((rnd.nextFloat() - 0.5f) * dp(60f)).setDuration(3000).start()
+                box.animate().translationX((rnd.nextFloat() - 0.5f) * dp(80f)).translationY((rnd.nextFloat() - 0.5f) * dp(30f)).setDuration(3000).start()
             }
             main.postDelayed(this, 1000)
         }
