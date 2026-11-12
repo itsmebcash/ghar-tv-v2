@@ -81,11 +81,15 @@ object Weather {
         private set
     @Volatile private var fetchedAt = 0L
 
+    /** Tomorrow and the day after: (weather code, low, high). */
+    @Volatile var nextDays: List<Triple<Int, Int, Int>> = emptyList()
+        private set
+
     /** Call off the main thread; refreshes at most every 30 minutes. */
     fun refresh() {
         if (System.currentTimeMillis() - fetchedAt < 30 * 60_000 && tempC != null) return
         runCatching {
-            val c = URL("https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1")
+            val c = URL("https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3")
                 .openConnection() as HttpURLConnection
             try {
                 c.connectTimeout = 8000; c.readTimeout = 12000
@@ -96,6 +100,13 @@ object Weather {
                 val daily = o.optJSONObject("daily")
                 hi = daily?.optJSONArray("temperature_2m_max")?.optDouble(0)?.let { Math.round(it).toInt() }
                 lo = daily?.optJSONArray("temperature_2m_min")?.optDouble(0)?.let { Math.round(it).toInt() }
+                val codes = daily?.optJSONArray("weather_code")
+                val maxs = daily?.optJSONArray("temperature_2m_max")
+                val mins = daily?.optJSONArray("temperature_2m_min")
+                nextDays = (1..2).mapNotNull { i ->
+                    if (codes == null || maxs == null || mins == null || i >= maxs.length()) null
+                    else Triple(codes.optInt(i, -1), Math.round(mins.optDouble(i)).toInt(), Math.round(maxs.optDouble(i)).toInt())
+                }
                 fetchedAt = System.currentTimeMillis()
             } finally { c.disconnect() }
         }
@@ -117,7 +128,15 @@ object Weather {
         ).filter { it.isNotBlank() }.joinToString("   ·   ")
     }
 
-    private fun icon() = when (code) {
+    /** Small: "भोलि ⛅ १४° – २६°     पर्सि ☀ १३° – २५°" */
+    fun forecastText(): String {
+        val names = listOf(TvRadio.t("भोलि", "Tomorrow"), TvRadio.t("पर्सि", "Day after"))
+        return nextDays.mapIndexed { i, (c, l, h) ->
+            "${names.getOrElse(i) { "" }}  ${icon(c)}  " + TvRadio.t("${TvRadio.num(l)}° – ${TvRadio.num(h)}°", "$l° – $h°")
+        }.joinToString("        ")
+    }
+
+    private fun icon(code: Int = this.code) = when (code) {
         0 -> "☀"; 1, 2 -> "⛅"; 3 -> "☁"; 45, 48 -> "🌫"; 51, 53, 55, 56, 57 -> "🌦"
         61, 63, 65, 66, 67, 80, 81, 82 -> "🌧"; 71, 73, 75, 77, 85, 86 -> "❄"; 95, 96, 99 -> "⛈"; else -> ""
     }
@@ -234,7 +253,10 @@ object NewsFeed {
  */
 class SegmentClock(c: Context) : View(c) {
     private val d = c.resources.displayMetrics.density
-    private val lit = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#707070") }
+    private val lit = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B8B8B8")
+        setShadowLayer(14f, 0f, 0f, Color.parseColor("#CC000000")) // readable on the photo
+    }
     private val ghost = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#161616") }
     private val path = Path()
     var text = "12:00"
@@ -317,7 +339,7 @@ class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
     private class P(var x: Float, var y: Float, var vx: Float, var vy: Float, val r: Float, val phase: Float, val warm: Boolean)
     private val rnd = java.util.Random()
     private val d = c.resources.displayMetrics.density
-    private val ps = List(34) {
+    private val ps = List(48) {
         P(rnd.nextFloat(), rnd.nextFloat(), (rnd.nextFloat() - 0.5f) * 0.012f, (rnd.nextFloat() - 0.5f) * 0.010f,
             10f + rnd.nextFloat() * 34f, rnd.nextFloat() * 6.28f, rnd.nextFloat() < 0.4f)
     }
@@ -370,7 +392,7 @@ class NightParticles(c: Context) : View(c), Choreographer.FrameCallback {
         ps.forEach { p ->
             // Very subtle blinking, a touch brighter with the music.
             val blink = 0.55f + 0.45f * kotlin.math.sin(t * 0.7f + p.phase)
-            val a = (0.05f + 0.07f * blink + 0.06f * level + 0.07f * pulse).coerceIn(0f, 0.24f)
+            val a = (0.08f + 0.10f * blink + 0.08f * level + 0.08f * pulse).coerceIn(0f, 0.34f)
             paint.alpha = (a * 255).toInt()
             paint.colorFilter = android.graphics.PorterDuffColorFilter(
                 if (p.warm) Color.rgb(255, 170, 90) else Color.rgb(170, 180, 210), android.graphics.PorterDuff.Mode.MULTIPLY
@@ -398,6 +420,7 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     private val newsSource: TextView
     private val box = LinearLayout(c)
     private val particles = NightParticles(c)
+    private val forecast: TextView
     private var headline = 0
     private val rnd = java.util.Random()
 
@@ -410,22 +433,43 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
     init {
         setBackgroundColor(Color.BLACK)
         isFocusable = true
+        // Kailash under the stars, dimmed so the room stays dark (photo: Isha Foundation)
+        addView(android.widget.ImageView(c).apply {
+            setImageResource(R.drawable.gp_night_kailash)
+            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            alpha = 0.42f
+        }, LayoutParams(-1, -1))
+        addView(View(c).apply {
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0x33000000, 0x66000000, 0xB3000000.toInt()))
+        }, LayoutParams(-1, -1))
         addView(particles, LayoutParams(-1, -1))
+        addView(tv(11f, "#55FFFFFF").apply { text = "Kailash · photo: Isha Foundation (isha.sadhguru.org)" },
+            LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(18f), dp(12f)) })
         box.orientation = LinearLayout.VERTICAL
         box.gravity = Gravity.CENTER_HORIZONTAL
         box.addView(clock, LinearLayout.LayoutParams(dp(680f), dp(190f)))
-        date = tv(24f, "#4A4A4A").apply { setPadding(0, dp(14f), 0, 0) }
-        box.addView(date)
-        // Temperature big enough to read from across the room; details under it.
-        temp = tv(64f, "#6E6E6E").apply { setPadding(0, dp(10f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
-        box.addView(temp)
-        weather = tv(24f, "#555555").apply { setPadding(0, dp(2f), 0, 0) }
+        // Nepali date and the temperature: same size, side by side, readable from the sofa.
+        val row = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        date = tv(44f, "#A8A8A8").apply { setPadding(0, dp(10f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        temp = tv(44f, "#A8A8A8").apply { setPadding(dp(40f), dp(10f), 0, 0); typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        row.addView(date)
+        row.addView(temp)
+        box.addView(row)
+        weather = tv(22f, "#8C8C8C").apply { setPadding(0, dp(2f), 0, 0) }
         box.addView(weather)
-        station = tv(20f, "#3C3C3C").apply { setPadding(0, dp(8f), 0, 0); maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
-        box.addView(station, LinearLayout.LayoutParams(dp(640f), -2))
-        news = tv(28f, "#5C5C5C").apply { setPadding(0, dp(26f), 0, 0); maxLines = 3; typeface = android.graphics.Typeface.DEFAULT; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.2f) }
-        box.addView(news, LinearLayout.LayoutParams(dp(820f), -2))
-        newsSource = tv(14f, "#3A3A3A").apply { setPadding(0, dp(6f), 0, 0) }
+        forecast = tv(17f, "#7A7A7A").apply { setPadding(0, dp(4f), 0, 0) }
+        box.addView(forecast)
+        station = tv(32f, "#C9A45C").apply {
+            setPadding(0, dp(14f), 0, 0); maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        box.addView(station, LinearLayout.LayoutParams(dp(820f), -2))
+        news = tv(36f, "#B0B0B0").apply { setPadding(0, dp(20f), 0, 0); maxLines = 3; typeface = android.graphics.Typeface.DEFAULT; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
+        box.addView(news, LinearLayout.LayoutParams(dp(880f), -2))
+        newsSource = tv(15f, "#6A6A6A").apply { setPadding(0, dp(6f), 0, 0) }
+        listOf(date, temp, weather, forecast, station, news, newsSource).forEach { it.setShadowLayer(10f, 0f, 0f, Color.parseColor("#E6000000")) }
         box.addView(newsSource)
         addView(box, LayoutParams(-2, -2, Gravity.CENTER))
     }
@@ -437,7 +481,7 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
         tick.run()
         rotate.run()
         Thread { NewsFeed.refresh(true); main.post { if (isShown && news.text.isNullOrEmpty()) rotate.run() } }.start()
-        Thread { Weather.refresh(); main.post { temp.text = Weather.tempText(); weather.text = Weather.detailText() } }.start()
+        Thread { Weather.refresh(); main.post { temp.text = Weather.tempText(); weather.text = Weather.detailText(); forecast.text = Weather.forecastText() } }.start()
     }
 
     fun hide() {
@@ -454,9 +498,10 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
             val raw = SimpleDateFormat("h:mm", Locale.US).format(now.time)
             clock.text = raw.padStart(5, ' ')
             clock.colonOn = now.get(Calendar.SECOND) % 2 == 0
-            val loc = if (TvRadio.nepali) Locale("ne", "NP") else Locale.ENGLISH
-            val ampm = if (now.get(Calendar.AM_PM) == Calendar.AM) TvRadio.t("बिहान", "AM") else TvRadio.t("साँझ", "PM")
-            date.text = SimpleDateFormat("EEEE, d MMMM", loc).format(Date()) + "   ·   " + ampm
+            // Nepali date, month and day only: "बिहीबार, कात्तिक २६"
+            val bs = NepaliDate.today()
+            date.text = if (bs != null) NepaliDate.WEEKDAYS[now.get(Calendar.DAY_OF_WEEK) - 1] + ", " + bs.monthDay()
+                else SimpleDateFormat("EEEE, d MMMM", Locale("ne", "NP")).format(Date())
             val n = PlaybackService.instance?.now()
             val it = n?.item
             station.text = when {
@@ -466,7 +511,9 @@ class NightScreen(c: Context, private val onExit: () -> Unit) : FrameLayout(c) {
                 else -> "♪  " + it.title
             }
             temp.text = Weather.tempText()
-            weather.text = Weather.detailText()
+            val ampm = if (now.get(Calendar.AM_PM) == Calendar.AM) TvRadio.t("बिहान", "AM") else TvRadio.t("साँझ", "PM")
+            weather.text = listOf(ampm, Weather.detailText()).filter { it.isNotBlank() }.joinToString("   ·   ")
+            forecast.text = Weather.forecastText()
             // Burn-in care: drift a little every minute; weather every 30 minutes.
             if (now.get(Calendar.SECOND) == 0) {
                 if (now.get(Calendar.MINUTE) % 30 == 0) Thread { Weather.refresh() }.start()

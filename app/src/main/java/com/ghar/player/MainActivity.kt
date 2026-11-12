@@ -47,6 +47,7 @@ import kotlin.math.sin
 class MainActivity : Activity() {
 
     companion object {
+        const val EXTRA_NIGHT = "com.ghar.player.extra.NIGHT"
         /** Where phones download Bcash Player (latest release). */
         const val BCASH_DOWNLOAD = "https://github.com/itsmebcash/Bcash-Player/releases/latest/download/BcashPlayer.apk"
 
@@ -604,8 +605,18 @@ class MainActivity : Activity() {
         Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
     }.getOrNull()
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
+        // Opened straight into the night clock (a shortcut, or the emulator test).
+        if (intent?.getBooleanExtra(EXTRA_NIGHT, false) == true) {
+            intent.removeExtra(EXTRA_NIGHT)
+            handler.postDelayed({ if (!night.isOn) nightOn() }, 1500)
+        }
         YtBridge.view = ytView
         Pairing.open()
         Pairing.onChanged = { refresh() }

@@ -62,6 +62,8 @@ jobs:
             adb exec-out screencap -p > shot-8-music-moved.png
             adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 15
             adb exec-out screencap -p > shot-9-music-ok.png
+            adb shell am start -n com.ghar.tv/com.ghar.player.MainActivity --ez com.ghar.player.extra.NIGHT true; sleep 25
+            adb exec-out screencap -p > shot-10-night.png
             adb shell input keyevent KEYCODE_HOME; sleep 20
             echo "===== SERVICES AFTER LEAVING ====="; adb shell dumpsys activity services com.ghar.tv | grep -E "ServiceRecord|isForeground" || true
             adb logcat -d -b crash > crash.txt || true
