@@ -34,7 +34,7 @@ final class RadioLive {
         if (s == null) return null;
         PlaybackService.Now n = s.now();
         Item it = n.getItem();
-        if (it == null || it.getStream().isEmpty() || !n.getPlaying()) return null;
+        if (it == null || it.getStream().isEmpty() || !(n.getPlaying() || n.getBuffering())) return null;
         return it;
     }
 

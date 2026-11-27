@@ -545,7 +545,7 @@ class MainActivity : Activity() {
             quick -> { lastBack = 0L; leave() }
             saver.isOn -> saverOff()
             night.isOn -> nightOff()
-            PlaybackService.instance?.now()?.playing == true -> saverOn()
+            PlaybackService.instance?.now()?.let { it.item != null && (it.playing || it.buffering) } == true -> saverOn()
             else -> leave()
         }
     }
