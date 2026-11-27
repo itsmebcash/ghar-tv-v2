@@ -45,6 +45,11 @@ import kotlin.math.sin
  * Remote: ◀ ▶ move between buttons, OK presses; media keys work too; Menu = forget phones.
  */
 class MainActivity : Activity() {
+    /** Same 960 × 540 layout and normal text size on every TV. */
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(com.ghar.tv.TvFit.wrap(base))
+    }
+
 
     companion object {
         const val EXTRA_NIGHT = "com.ghar.player.extra.NIGHT"
@@ -255,7 +260,7 @@ class MainActivity : Activity() {
         }
         progress = ProgressLine(this, saffron)
         times = text(24f, dim).apply { typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD) }
-        status = text(22f, saffron)
+        status = text(17f, saffron)
 
         playBtn = control(R.drawable.gp_ctl_play, "Play or pause", big = true) { PlaybackService.instance?.toggle() }
         radioBtn = bigRadioButton()
@@ -274,10 +279,10 @@ class MainActivity : Activity() {
             visibility = View.GONE
         }
         heartBox.orientation = LinearLayout.HORIZONTAL
-        (heart.layoutParams as? LinearLayout.LayoutParams)?.let { it.width = dp(62f); it.height = dp(62f) }
-        heartLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+        (heart.layoutParams as? LinearLayout.LayoutParams)?.let { it.width = dp(40f); it.height = dp(40f) }
+        heartLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
         heartLabel.setPadding(dp(14f), 0, 0, 0)
-        radioStopBtn.layoutParams = LinearLayout.LayoutParams(-2, dp(96f))
+        radioStopBtn.layoutParams = LinearLayout.LayoutParams(-2, dp(68f))
         radioKeys = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             addView(radioStopBtn)
@@ -319,7 +324,7 @@ class MainActivity : Activity() {
         deckBox = FrameLayout(this).apply {
             clipChildren = false
             addView(deck, FrameLayout.LayoutParams(-1, -1))
-            addView(radioKeys, FrameLayout.LayoutParams(-1, dp(120f), Gravity.BOTTOM).apply { bottomMargin = dp(12f) })
+            addView(radioKeys, FrameLayout.LayoutParams(-1, dp(88f), Gravity.BOTTOM).apply { bottomMargin = dp(10f) })
         }
         col.clipChildren = false
         col.addView(deckBox, LinearLayout.LayoutParams(-1, dp(165f)).apply { leftMargin = dp(30f); rightMargin = dp(30f) })
@@ -332,7 +337,7 @@ class MainActivity : Activity() {
         col.addView(space(6))
         col.addView(times, LinearLayout.LayoutParams(-1, -2))
         // What is happening: connecting to a station, loading a song…
-        loadText = text(24f, saffron)
+        loadText = text(18f, saffron)
         loadRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             addView(LoadingView(context), LinearLayout.LayoutParams(dp(34f), dp(34f)))
@@ -342,7 +347,7 @@ class MainActivity : Activity() {
         col.addView(loadRow, LinearLayout.LayoutParams(-1, dp(40f)).apply { topMargin = dp(2f) })
         col.addView(space(14))
         col.addView(controls, LinearLayout.LayoutParams(-1, -2))
-        radioHint = text(20f, Color.parseColor("#BDBDBD")).apply { visibility = View.GONE; setPadding(0, dp(8f), 0, 0) }
+        radioHint = text(14f, Color.parseColor("#BDBDBD")).apply { visibility = View.GONE; setPadding(0, dp(8f), 0, 0) }
         col.addView(heartBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8f) })
         col.addView(radioHint, LinearLayout.LayoutParams(-1, -2))
         col.addView(space(10))
@@ -465,17 +470,17 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER
         isFocusable = true
         isClickable = true
-        setPadding(dp(40f), 0, dp(46f), 0)
+        setPadding(dp(30f), 0, dp(34f), 0)
         background = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
-                cornerRadius = dp(24f).toFloat(); setColor(keyFocus); setStroke(dp(2f), Color.parseColor("#9E9E9E"))
+                cornerRadius = dp(20f).toFloat(); setColor(keyFocus); setStroke(dp(2f), Color.parseColor("#9E9E9E"))
             })
-            addState(intArrayOf(), GradientDrawable().apply { cornerRadius = dp(24f).toFloat(); setColor(keyGrey) })
+            addState(intArrayOf(), GradientDrawable().apply { cornerRadius = dp(20f).toFloat(); setColor(keyGrey) })
         }
         liftOnFocus(this)
         radioStopIcon = ImageView(context).apply { setImageResource(R.drawable.gp_ctl_stop); setColorFilter(Color.parseColor("#FF6B5E")) }
-        addView(radioStopIcon, LinearLayout.LayoutParams(dp(50f), dp(50f)))
-        radioStopLabel = text(36f, Color.WHITE, bold = true).apply { setPadding(dp(18f), 0, 0, 0) }
+        addView(radioStopIcon, LinearLayout.LayoutParams(dp(36f), dp(36f)))
+        radioStopLabel = text(26f, Color.WHITE, bold = true).apply { setPadding(dp(14f), 0, 0, 0) }
         addView(radioStopLabel)
         setOnClickListener { radioOk() }
         visibility = View.GONE
@@ -867,8 +872,12 @@ class MainActivity : Activity() {
         times.visibility = if (radio) View.GONE else View.VISIBLE
         if (deckTall != radio) {
             deckTall = radio
-            deckBox.layoutParams = (deckBox.layoutParams as LinearLayout.LayoutParams).apply { height = dp(if (radio) 400f else 165f) }
-            deck.trayPx = if (radio) dp(132f).toFloat() else 0f
+            // radio: a smaller set in the middle, with room around it
+            deckBox.layoutParams = (deckBox.layoutParams as LinearLayout.LayoutParams).apply {
+                height = dp(if (radio) 300f else 165f)
+                leftMargin = dp(if (radio) 120f else 30f); rightMargin = leftMargin
+            }
+            deck.trayPx = if (radio) dp(100f).toFloat() else 0f
         }
         radioKeys.visibility = if (radio) View.VISIBLE else View.GONE
         // With radio, every button is inside the radio: hide the row underneath.
@@ -899,8 +908,8 @@ class MainActivity : Activity() {
             radioStopIcon.setColorFilter(if (on) Color.parseColor("#FF6B5E") else Color.parseColor("#4ADE80"))
             radioStopLabel.text = if (on) TvRadio.t("रोक्नुहोस्", "Stop") else TvRadio.t("बजाउनुहोस्", "Play")
             radioHint.text = TvRadio.t(
-                "▲ ▼ च्यानल  ·  ◀ ▶ सूची  ·  OK = रोक्ने / बजाउने  ·  OK थिचिराख्नुहोस् = ♥  ·  Back = 🌙 घडी  ·  Back ×२ = होम",
-                "▲ ▼ channel  ·  ◀ ▶ list  ·  OK = stop / play  ·  hold OK = ♥  ·  Back = 🌙 clock  ·  Back ×2 = home"
+                "▲ ▼ च्यानल  ·  ◀ ▶ सूची  ·  OK = रोक्ने / बजाउने  ·  OK थिचिराख्नुहोस् = ♥  ·  Back = स्क्रिनसेभर  ·  Back ×२ = बाहिर",
+                "▲ ▼ channel  ·  ◀ ▶ list  ·  OK = stop / play  ·  hold OK = ♥  ·  Back = screensaver  ·  Back ×2 = leave"
             )
             stopKey.visibility = View.GONE
             stopKey.findViewWithTag<TextView>("label").text = TvRadio.t("रोक्नुहोस्", "Stop")

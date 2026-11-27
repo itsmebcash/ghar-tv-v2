@@ -47,7 +47,8 @@ class RadioSaver(c: Context) : FrameLayout(c) {
 
     private val photo = ImageView(c)
     private val particles = NightParticles(c)
-    private val time = tv(96f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
+    // (font padding kept on the time: tall Nepali digits were cut at the top without it)
+    private val time = tv(80f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); includeFontPadding = true }
     private val ampm = tv(26f, 0xCCFFFFFF.toInt()).apply { setPadding(dp(10f), 0, 0, dp(14f)) }
     private val date = tv(24f, 0xFFFFC27A.toInt(), bold = true)
     private val weather = tv(19f, 0xE6FFFFFF.toInt())
@@ -94,7 +95,7 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         top.addView(clockRow)
         top.addView(date, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10f) })
         top.addView(weather, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6f) })
-        addView(top, LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { leftMargin = dp(56f); topMargin = dp(40f) })
+        addView(top, LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { leftMargin = dp(56f); topMargin = dp(36f) })
 
         // ---- bottom left: LIVE · station · on air
         val bottom = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL }
@@ -109,13 +110,13 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         liveRow.background = GradientDrawable().apply { cornerRadius = dp(8f).toFloat(); setColor(0x99000000.toInt()); setStroke(dp(1f), 0x55FF3B30) }
         liveRow.setPadding(dp(12f), dp(6f), dp(14f), dp(6f))
         bottom.addView(liveRow, LinearLayout.LayoutParams(-2, -2))
-        station = tv(38f, 0xFFE8C27A.toInt()).apply {
+        station = tv(34f, 0xFFE8C27A.toInt()).apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             typeface = runCatching { Typeface.createFromAsset(c.assets, "gp_special_elite.ttf") }.getOrDefault(Typeface.SERIF)
             letterSpacing = 0.03f
         }
         bottom.addView(station, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12f) })
-        onAir.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+        onAir.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         bottom.addView(onAir, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8f) })
         addView(bottom, LayoutParams(-1, -2, Gravity.BOTTOM or Gravity.START).apply {
             leftMargin = dp(56f); rightMargin = dp(470f); bottomMargin = dp(48f)
@@ -138,12 +139,12 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         }
         newsCard.addView(newsPic, LinearLayout.LayoutParams(dp(128f), dp(92f)))
         val texts = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12f), 0, 0, 0) }
-        newsMeta = tv(11f, 0xFFFFC27A.toInt(), bold = true).apply { letterSpacing = 0.05f }
-        newsTitle = tv(15f, Color.WHITE, bold = true).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
+        newsMeta = tv(12f, 0xFFFFC27A.toInt(), bold = true).apply { letterSpacing = 0.05f }
+        newsTitle = tv(19f, Color.WHITE, bold = true).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
         newsBrief = tv(12f, 0xCCFFFFFF.toInt()).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
         texts.addView(newsMeta)
         texts.addView(newsTitle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4f) })
-        texts.addView(newsBrief, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4f) })
+        // (no summary text: the headline is the story, kept big)
         newsCard.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
         addView(newsCard, LayoutParams(dp(400f), -2, Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(40f); bottomMargin = dp(100f) })
 
@@ -185,7 +186,7 @@ class RadioSaver(c: Context) : FrameLayout(c) {
                     newsMeta.text = st.source + (if (st.ago.isNotEmpty()) "  ·  " + st.ago else "")
                     newsTitle.text = st.title
                     newsBrief.text = st.brief
-                    newsBrief.visibility = if (st.brief.isEmpty()) GONE else VISIBLE
+                    newsBrief.visibility = GONE
                     newsPic.setImageBitmap(null)
                     newsPic.visibility = if (st.image.isEmpty()) GONE else VISIBLE
                     if (st.image.isNotEmpty()) NewsStories.picture(st.image) { b -> if (newsTitle.text == st.title) newsPic.setImageBitmap(b) }

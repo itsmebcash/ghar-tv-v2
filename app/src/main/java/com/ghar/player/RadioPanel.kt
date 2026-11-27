@@ -231,28 +231,28 @@ class RadioPanel(
         background = rowBg()
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.END
-        setPadding(dp(18f), dp(9f), dp(18f), dp(9f))
+        setPadding(dp(14f), dp(7f), dp(14f), dp(7f))
     }
 
     init {
         setBackgroundColor(Color.parseColor("#FA141414"))
         isClickable = true
-        val row = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(36f), dp(22f), dp(36f), dp(16f)) }
+        val row = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(28f), dp(18f), dp(28f), dp(12f)) }
         // ---- Left menu (scrolls if the TV screen is small, so nothing is cut) ----
         val left = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL }
-        heading = tv(32f, saffron, bold = true).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
+        heading = tv(24f, saffron, bold = true).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
         left.addView(heading)
-        total = tv(18f, dim).apply { setPadding(0, 0, 0, dp(12f)) }
+        total = tv(14f, dim).apply { setPadding(0, 0, 0, dp(10f)) }
         left.addView(total)
         TvRadio.Category.entries.forEach { k ->
-            val v = menuRow(25f).apply {
+            val v = menuRow(18f).apply {
                 setOnClickListener { select(k); wheel.requestFocus() }
                 setOnFocusChangeListener { _, f -> if (f && cat != k) select(k) }
             }
             catViews += v
             left.addView(v, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(3f) })
         }
-        langView = menuRow(19f).apply {
+        langView = menuRow(15f).apply {
             setOnClickListener {
                 TvRadio.setNepali(context, !TvRadio.nepali)
                 relabel(); select(cat)
@@ -260,19 +260,19 @@ class RadioPanel(
             }
         }
         left.addView(langView, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10f) })
-        nightView = menuRow(19f).apply { setOnClickListener { close(); onNight() } }
+        nightView = menuRow(15f).apply { setOnClickListener { close(); onNight() } }
         left.addView(nightView, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(3f) })
-        pairCode = tv(16f, dim).apply { setPadding(dp(4f), dp(14f), 0, dp(4f)) }
+        pairCode = tv(13f, dim).apply { setPadding(dp(4f), dp(12f), 0, dp(4f)) }
         left.addView(pairCode)
         val scroll = ScrollView(c).apply {
             isVerticalScrollBarEnabled = false
             isFillViewport = true
             addView(left, LayoutParams(-1, -2))
         }
-        row.addView(scroll, LinearLayout.LayoutParams(dp(360f), -1))
+        row.addView(scroll, LinearLayout.LayoutParams(dp(240f), -1))
         // ---- Station wheel ----
-        val right = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(28f), 0, 0, 0) }
-        status = tv(22f, dim).apply { setPadding(dp(10f), 0, 0, 0) }
+        val right = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24f), 0, 0, 0) }
+        status = tv(17f, dim).apply { setPadding(dp(10f), 0, 0, 0) }
         spinner = LoadingView(c)
         right.addView(LinearLayout(c).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
@@ -283,7 +283,7 @@ class RadioPanel(
         wheel.onPick = { play(it) }
         wheel.onHold = { toggleSave(it) }
         right.addView(wheel, LinearLayout.LayoutParams(-1, 0, 1f))
-        hint = tv(17f, dim).apply { gravity = android.view.Gravity.CENTER; setPadding(0, dp(6f), 0, 0) }
+        hint = tv(14f, dim).apply { gravity = android.view.Gravity.CENTER; setPadding(0, dp(6f), 0, 0) }
         right.addView(hint, LinearLayout.LayoutParams(-1, -2))
         row.addView(right, LinearLayout.LayoutParams(0, -1, 1f))
         addView(row, LayoutParams(-1, -1))

@@ -38,6 +38,7 @@ final class Lang {
         Configuration config = new Configuration(base.getResources().getConfiguration());
         if (Build.VERSION.SDK_INT >= 24) config.setLocales(new android.os.LocaleList(locale));
         else config.setLocale(locale);
+        TvFit.apply(base, config); // on a TV: the same 960 × 540 layout and normal text size on every set
         return base.createConfigurationContext(config);
     }
 }
