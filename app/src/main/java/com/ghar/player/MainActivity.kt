@@ -279,6 +279,8 @@ class MainActivity : Activity() {
             visibility = View.GONE
         }
         heartBox.orientation = LinearLayout.HORIZONTAL
+        // (added while the box was vertical, the label had taken the full width and pushed the heart aside)
+        heartLabel.layoutParams = LinearLayout.LayoutParams(-2, -2)
         (heart.layoutParams as? LinearLayout.LayoutParams)?.let { it.width = dp(40f); it.height = dp(40f) }
         heartLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
         heartLabel.setPadding(dp(14f), 0, 0, 0)
