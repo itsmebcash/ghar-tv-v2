@@ -34,6 +34,35 @@ public class StartActivity extends Activity {
                 v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(150).start();
         tv.setOnFocusChangeListener(grow);
         music.setOnFocusChangeListener(grow);
+        // Keep the corners round when chosen: the TV's own square focus frame is switched off,
+        // and the card (and anything drawn on it) is cut to its rounded shape.
+        float radius = 24 * getResources().getDisplayMetrics().density;
+        for (View card : new View[]{tv, music}) {
+            if (android.os.Build.VERSION.SDK_INT >= 26) card.setDefaultFocusHighlightEnabled(false);
+            card.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View v, android.graphics.Outline o) {
+                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), radius);
+                }
+            });
+            card.setClipToOutline(true);
+            card.setStateListAnimator(null);
+            if (android.os.Build.VERSION.SDK_INT >= 23) card.setForeground(null);
+        }
+    }
+
+    private long lastBack;
+
+    /** Back once: a reminder. Back again within 2 seconds: close (the radio keeps playing). */
+    @Override
+    public void onBackPressed() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastBack < 2000) {
+            finish();
+            return;
+        }
+        lastBack = now;
+        android.widget.Toast.makeText(this, R.string.press_back_exit, android.widget.Toast.LENGTH_SHORT).show();
     }
 
     @Override

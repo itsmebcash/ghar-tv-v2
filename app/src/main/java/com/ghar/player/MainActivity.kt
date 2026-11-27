@@ -89,6 +89,7 @@ class MainActivity : Activity() {
     private var centerLong = false
     private var autoStartTries = 0
     private lateinit var night: NightScreen
+    private lateinit var saver: RadioSaver
     private lateinit var nightTop: LinearLayout
     private lateinit var heart: ImageView
     private lateinit var heartLabel: TextView
@@ -395,9 +396,25 @@ class MainActivity : Activity() {
         }
         night = NightScreen(this) { nightOff() }.apply { visibility = View.GONE }
         root.addView(night, FrameLayout.LayoutParams(-1, -1))
+        saver = RadioSaver(this).apply { visibility = View.GONE }
+        root.addView(saver, FrameLayout.LayoutParams(-1, -1))
         root.addView(favFlash, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         root.addView(volBox, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(40f) })
-        setContentView(root)
+        // Same look on every TV: the screen is laid out on a 960 × 540 canvas and scaled to fit,
+        // centred, whatever the TV's size and resolution (32" HD or 55" 4K).
+        val designW = dp(960f); val designH = dp(540f)
+        val stage = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#141414")); clipChildren = true }
+        stage.addView(root, FrameLayout.LayoutParams(designW, designH))
+        stage.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+            val w = r - l; val h = b - t
+            if (w <= 0 || h <= 0) return@addOnLayoutChangeListener
+            val s = minOf(w / designW.toFloat(), h / designH.toFloat())
+            root.pivotX = 0f; root.pivotY = 0f
+            root.scaleX = s; root.scaleY = s
+            root.translationX = (w - designW * s) / 2f
+            root.translationY = (h - designH * s) / 2f
+        }
+        setContentView(stage)
         handler.postDelayed(autoStart, 1200)
         playBtn.requestFocus()
     }
@@ -516,14 +533,42 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Back once: main screen ⇄ night clock.
-     * Back twice quickly: the TV home screen (the radio keeps playing).
+     * Back, while the radio plays: the radio screensaver; Back again: the radio screen.
+     * Back when nothing plays: the TV / radio choice. Back twice quickly: the TV / radio choice
+     * (the radio keeps playing).
      */
     private fun backPressed() {
         val now = System.currentTimeMillis()
-        if (now - lastBack < 1200) { lastBack = 0L; goHome(); return }
+        val quick = now - lastBack < 1200
         lastBack = now
-        if (night.isOn) nightOff() else nightOn()
+        when {
+            quick -> { lastBack = 0L; leave() }
+            saver.isOn -> saverOff()
+            night.isOn -> nightOff()
+            PlaybackService.instance?.now()?.playing == true -> saverOn()
+            else -> leave()
+        }
+    }
+
+    private fun saverOn() {
+        saver.show()
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun saverOff() {
+        saver.hide()
+        refresh()
+        (if (radioStopBtn.visibility == View.VISIBLE) radioStopBtn else if (radioBtn.visibility == View.VISIBLE) radioBtn else playBtn).requestFocus()
+    }
+
+    /** To the TV / radio choice; whatever plays keeps playing. */
+    private fun leave() {
+        if (saver.isOn) saver.hide()
+        if (night.isOn) night.hide()
+        window.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+        startActivity(android.content.Intent(this, com.ghar.tv.StartActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        finish()
     }
 
     /** Back to the TV's home screen; the radio keeps playing in the background. */
@@ -613,6 +658,10 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // Opened straight into the night clock (a shortcut, or the emulator test).
+        if (intent?.getBooleanExtra("com.ghar.player.extra.SAVER", false) == true) {
+            intent.removeExtra("com.ghar.player.extra.SAVER")
+            handler.postDelayed({ if (!saver.isOn) saverOn() }, 1500)
+        }
         if (intent?.getBooleanExtra(EXTRA_NIGHT, false) == true) {
             intent.removeExtra(EXTRA_NIGHT)
             handler.postDelayed({ if (!night.isOn) nightOn() }, 1500)
@@ -654,6 +703,16 @@ class MainActivity : Activity() {
         }
         if (event.keyCode == KeyEvent.KEYCODE_BACK && !radioPanel.isOpen) {
             if (event.action == KeyEvent.ACTION_UP) backPressed()
+            return true
+        }
+        if (saver.isOn) {
+            // Screensaver: ▲ ▼ / CH still change station; any other button shows the radio again.
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> { if (event.action == KeyEvent.ACTION_DOWN) PlaybackService.instance?.next(); return true }
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> { if (event.action == KeyEvent.ACTION_DOWN) PlaybackService.instance?.previous(); return true }
+                KeyEvent.KEYCODE_VOLUME_MUTE -> return super.dispatchKeyEvent(event)
+            }
+            if (event.action == KeyEvent.ACTION_UP) { lastBack = 0L; saverOff() }
             return true
         }
         if (night.isOn) {

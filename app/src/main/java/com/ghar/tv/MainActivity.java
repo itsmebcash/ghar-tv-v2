@@ -99,6 +99,12 @@ public class MainActivity extends Activity implements Repo.Listener {
 
         findViewById(R.id.rescan).setOnClickListener(v -> confirmRescan());
         findViewById(R.id.settings_button).setOnClickListener(v -> showSettings());
+        // The radio playing in the background: "● Radio live", 🔇 mute the TV, ■ stop the radio
+        View rescanBtn = findViewById(R.id.rescan);
+        android.view.ViewGroup head = (android.view.ViewGroup) rescanBtn.getParent();
+        android.widget.LinearLayout.LayoutParams rl = new android.widget.LinearLayout.LayoutParams(-2, -2);
+        rl.setMarginEnd((int) (16 * getResources().getDisplayMetrics().density));
+        head.addView(RadioLive.bar(this), head.indexOfChild(rescanBtn), rl);
 
         adapter = new ChannelAdapter();
         grid.setAdapter(adapter);

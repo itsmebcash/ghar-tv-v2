@@ -39,32 +39,35 @@ jobs:
             adb logcat -c
             adb shell monkey -p com.ghar.tv -c android.intent.category.LEANBACK_LAUNCHER 1; sleep 8
             adb exec-out screencap -p > shot-0-start.png
+            adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 2
+            adb exec-out screencap -p > shot-0b-start-focus.png
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 30
+            adb exec-out screencap -p > shot-1-radio.png
+            echo "===== RADIO PLAYING? ====="; adb shell dumpsys media_session | grep -E "state=PlaybackState" | head -2 || true
+            adb shell input keyevent KEYCODE_BACK; sleep 6
+            adb exec-out screencap -p > shot-2-saver.png
+            adb shell input keyevent KEYCODE_BACK; sleep 4
+            adb exec-out screencap -p > shot-3-back-to-radio.png
+            adb shell input keyevent KEYCODE_BACK KEYCODE_BACK; sleep 5
+            adb exec-out screencap -p > shot-4-start-from-radio.png
+            adb shell input keyevent KEYCODE_DPAD_LEFT; sleep 1
             adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 40
             adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 2
-            adb exec-out screencap -p > shot-1-home.png
+            adb exec-out screencap -p > shot-5-tv-home.png
             adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 25
-            adb exec-out screencap -p > shot-2-playing.png
-            for i in 1 2 3; do adb shell input keyevent KEYCODE_DPAD_UP; sleep 7; done
-            adb shell input keyevent KEYCODE_BACK; sleep 3
-            adb shell input keyevent KEYCODE_BACK; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 4
-            adb exec-out screencap -p > shot-3-back-to-start.png
-            adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 1
-            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 10
-            adb exec-out screencap -p > shot-4-music.png
-            adb shell input keyevent KEYCODE_DPAD_DOWN; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 2
-            adb exec-out screencap -p > shot-5-music-nav.png
-            adb shell monkey -p com.ghar.tv -c android.intent.category.LEANBACK_LAUNCHER 1; sleep 5
-            adb exec-out screencap -p > shot-6-start-again.png
-            adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 1
-            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 12
-            adb exec-out screencap -p > shot-7-music.png
-            adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 1; adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 2
-            adb exec-out screencap -p > shot-8-music-moved.png
-            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 15
-            adb exec-out screencap -p > shot-9-music-ok.png
-            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 12
-            adb shell am start -n com.ghar.tv/com.ghar.player.MainActivity --ez com.ghar.player.extra.NIGHT true; sleep 25
-            adb exec-out screencap -p > shot-10-night.png
+            adb exec-out screencap -p > shot-6-tv-playing.png
+            adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 4
+            adb exec-out screencap -p > shot-7-panel.png
+            echo "===== BOTH PLAYING? ====="; adb shell dumpsys media_session | grep -E "state=PlaybackState" | head -2 || true
+            adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 3; adb shell input keyevent KEYCODE_BACK; sleep 4
+            adb exec-out screencap -p > shot-8-start-again.png
+            adb shell input keyevent KEYCODE_BACK; sleep 1
+            adb exec-out screencap -p > shot-9-toast.png
+            sleep 3
+            adb shell input keyevent KEYCODE_BACK KEYCODE_BACK; sleep 4
+            echo "===== TOP AFTER EXIT ====="; adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" | head -2 || true
+            adb shell am start -n com.ghar.tv/com.ghar.player.MainActivity --ez com.ghar.player.extra.SAVER true; sleep 15
+            adb exec-out screencap -p > shot-10-saver2.png
             adb shell input keyevent KEYCODE_HOME; sleep 20
             echo "===== SERVICES AFTER LEAVING ====="; adb shell dumpsys activity services com.ghar.tv | grep -E "ServiceRecord|isForeground" || true
             adb logcat -d -b crash > crash.txt || true

@@ -180,4 +180,13 @@
     <string name="start_music_sub">Songs from your phone (Bcash Player) and FM radio</string>
     <string name="start_playing">♪ Playing now: %1$s</string>
     <string name="credit">Concept by Bikash Sharma, Imprintfy Tech.</string>
+    <!-- Radio playing while watching TV -->
+    <string name="radio_muted_tv">The radio is playing, so the TV is muted. Mute / Stop radio: OK › top of the channel list, or Menu</string>
+    <string name="tv_muted">TV muted — the radio carries on</string>
+    <string name="tv_unmuted">TV sound on</string>
+    <string name="option_tv_mute">🔇  Mute the TV (keep the radio)</string>
+    <string name="option_tv_unmute">🔊  TV sound on</string>
+    <string name="option_stop_radio">■  Stop the radio (%1$s)</string>
+    <string name="radio_stopped_tv">Radio stopped — TV sound on</string>
+    <string name="press_back_exit">Press back again to exit</string>
 </resources>

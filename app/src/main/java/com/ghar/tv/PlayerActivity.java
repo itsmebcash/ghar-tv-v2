@@ -292,6 +292,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         setupGestures();
 
         player = buildPlayer();
+        // The radio is playing: watch with the TV muted (🔇 / ■ in the channel list, or Menu)
+        if (RadioLive.live() && !RadioLive.tvMuted) {
+            RadioLive.tvMuted = true;
+            handler.postDelayed(() -> showMessage(getString(R.string.radio_muted_tv)), 1500);
+        }
+        if (!RadioLive.live()) RadioLive.tvMuted = false;
+        RadioLive.onMuteChanged = this::applyMute;
+        applyMute();
+        addRadioLive();
         limitPicture(0);
         playerView.setPlayer(player);
         player.addListener(new PlayerEvents());
@@ -788,6 +797,41 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         }
     }
 
+    /** TV sound off while the radio plays (and back on when it stops). */
+    private void applyMute() {
+        if (player != null) player.setVolume(RadioLive.tvMuted ? 0f : 1f);
+    }
+
+    private boolean radioWasLive;
+
+    /** "● Radio live" over the picture, and its buttons at the top of the channel list. */
+    private void addRadioLive() {
+        android.widget.FrameLayout area = findViewById(R.id.video_area);
+        TextView chip = RadioLive.chip(this);
+        android.widget.FrameLayout.LayoutParams cl = new android.widget.FrameLayout.LayoutParams(-2, -2,
+                android.view.Gravity.TOP | android.view.Gravity.END);
+        int m = (int) (18 * getResources().getDisplayMetrics().density);
+        cl.topMargin = m;
+        cl.setMarginEnd(m);
+        area.addView(chip, cl);
+        android.widget.LinearLayout box = findViewById(R.id.panel_box);
+        android.widget.LinearLayout bar = RadioLive.bar(this);
+        android.widget.LinearLayout.LayoutParams bl = new android.widget.LinearLayout.LayoutParams(-1, -2);
+        bl.setMarginStart(m / 2);
+        bl.bottomMargin = m / 2;
+        box.addView(bar, 2, bl); // under the title and its hint
+        // the radio stopped by itself or from elsewhere: TV sound back on
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                boolean live = RadioLive.live();
+                if (radioWasLive && !live && RadioLive.tvMuted) RadioLive.setMuted(false);
+                radioWasLive = live;
+                handler.postDelayed(this, 1500);
+            }
+        });
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -817,6 +861,7 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     }
 
     private void releasePlayer() {
+        if (RadioLive.onMuteChanged != null) RadioLive.onMuteChanged = null;
         rememberLevel();
         CrashGuard.clearOpening();
         if (player != null) {
@@ -1161,6 +1206,15 @@ public class PlayerActivity extends Activity implements Repo.Listener {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         lastKeyAt = android.os.SystemClock.uptimeMillis(); // the channel list waits while you browse
+        // Mute key while the radio plays: the TV's sound only (the radio carries on)
+        if ((event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_MUTE || event.getKeyCode() == KeyEvent.KEYCODE_MUTE)
+                && RadioLive.live()) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                RadioLive.setMuted(!RadioLive.tvMuted);
+                showMessage(getString(RadioLive.tvMuted ? R.string.tv_muted : R.string.tv_unmuted));
+            }
+            return true;
+        }
         // Last minute of the sleep timer: any button means "still watching".
         if (sleepWarning && event.getKeyCode() != KeyEvent.KEYCODE_BACK) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) keepWatching();
@@ -1696,7 +1750,14 @@ public class PlayerActivity extends Activity implements Repo.Listener {
         if (c == null) return;
         boolean fav = favs.contains(c.url);
         Channel prev = previousUrl == null ? null : repo.find(previousUrl);
-        String[] items = {
+        // While the radio plays: mute / unmute the TV, stop the radio — at the top
+        java.util.List<String> extra = new java.util.ArrayList<>();
+        if (RadioLive.live()) {
+            extra.add(getString(RadioLive.tvMuted ? R.string.option_tv_unmute : R.string.option_tv_mute));
+            extra.add(getString(R.string.option_stop_radio, RadioLive.station()));
+        }
+        final int nExtra = extra.size();
+        String[] base = {
                 getString(R.string.option_search),
                 getString(fav ? R.string.menu_unfavourite : R.string.menu_favourite),
                 getString(R.string.option_previous, prev != null ? prev.name : "–"),
@@ -1710,9 +1771,20 @@ public class PlayerActivity extends Activity implements Repo.Listener {
                 getString(R.string.option_rescan),
                 getString(R.string.option_about),
         };
+        extra.addAll(java.util.Arrays.asList(base));
+        String[] items = extra.toArray(new String[0]);
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(getString(R.string.settings_for, c.name))
-                .setItems(items, (d, w) -> {
+                .setItems(items, (d, which) -> {
+                    if (which < nExtra) {
+                        if (which == 0) RadioLive.setMuted(!RadioLive.tvMuted);
+                        else {
+                            RadioLive.stopRadio();
+                            showMessage(getString(R.string.radio_stopped_tv));
+                        }
+                        return;
+                    }
+                    int w = which - nExtra;
                     if (w == 0) openLiveSearch();
                     else if (w == 1) toggleFavourite(c);
                     else if (w == 2) flipToPrevious();

@@ -178,4 +178,13 @@
     <string name="start_music_sub">फोनबाट गीत (Bcash Player) र एफएम रेडियो</string>
     <string name="start_playing">♪ अहिले बज्दैछ: %1$s</string>
     <string name="credit">Concept by Bikash Sharma, Imprintfy Tech.</string>
+    <!-- Radio playing while watching TV -->
+    <string name="radio_muted_tv">रेडियो बज्दैछ, त्यसैले टिभीको आवाज बन्द छ। म्युट / रेडियो रोक्न: OK › च्यानल सूचीको माथि, वा मेनु</string>
+    <string name="tv_muted">टिभी म्युट — रेडियो बजिरहन्छ</string>
+    <string name="tv_unmuted">टिभीको आवाज खुल्यो</string>
+    <string name="option_tv_mute">🔇  टिभी म्युट गर्नुहोस् (रेडियो बजिरहन्छ)</string>
+    <string name="option_tv_unmute">🔊  टिभीको आवाज खोल्नुहोस्</string>
+    <string name="option_stop_radio">■  रेडियो रोक्नुहोस् (%1$s)</string>
+    <string name="radio_stopped_tv">रेडियो रोकियो — टिभीको आवाज खुल्यो</string>
+    <string name="press_back_exit">बन्द गर्न फेरि ब्याक थिच्नुहोस्</string>
 </resources>
