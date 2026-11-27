@@ -46,6 +46,9 @@ jobs:
             adb exec-out screencap -p > shot-0b-start-focus.png
             adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 30
             adb exec-out screencap -p > shot-1-radio.png
+            adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 5
+            adb exec-out screencap -p > shot-1b-panel.png
+            adb shell input keyevent KEYCODE_BACK; sleep 4
             echo "===== RADIO PLAYING? ====="; adb shell dumpsys media_session | grep -E "state=PlaybackState" | head -2 || true
             adb shell input keyevent KEYCODE_BACK; sleep 6
             adb exec-out screencap -p > shot-2-saver.png
