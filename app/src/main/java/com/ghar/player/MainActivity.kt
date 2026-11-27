@@ -875,7 +875,7 @@ class MainActivity : Activity() {
             // radio: a smaller set in the middle, with room around it
             deckBox.layoutParams = (deckBox.layoutParams as LinearLayout.LayoutParams).apply {
                 height = dp(if (radio) 300f else 165f)
-                leftMargin = dp(if (radio) 120f else 30f); rightMargin = leftMargin
+                leftMargin = dp(if (radio) 40f else 30f); rightMargin = leftMargin
             }
             deck.trayPx = if (radio) dp(100f).toFloat() else 0f
         }

@@ -75,7 +75,7 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         photo.scaleType = ImageView.ScaleType.CENTER_CROP
         photo.alpha = 0.8f
         addView(photo, LayoutParams(-1, -1))
-        // dark to the left and at the bottom, where the text is (as on the news screensaver)
+        // darker where the words are: left, bottom and top (as on the news screensaver)
         addView(View(c).apply {
             background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xCC000000.toInt(), 0x55000000, 0x00000000))
         }, LayoutParams(-1, -1))
@@ -97,64 +97,67 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         top.addView(weather, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6f) })
         addView(top, LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { leftMargin = dp(56f); topMargin = dp(36f) })
 
-        // ---- bottom left: LIVE · station · on air
-        val bottom = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL }
+        // ---- top right: LIVE · station (scrolls when long) · on air — small
+        val radioBox = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
         val liveRow = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        dot = tv(18f, 0xFFFF3B30.toInt()).apply { text = "●"; setShadowLayer(12f, 0f, 0f, 0xFFFF3B30.toInt()) }
-        live = tv(17f, Color.WHITE, bold = true).apply {
+        dot = tv(13f, 0xFFFF3B30.toInt()).apply { text = "●"; setShadowLayer(10f, 0f, 0f, 0xFFFF3B30.toInt()) }
+        live = tv(12f, Color.WHITE, bold = true).apply {
             letterSpacing = 0.12f
-            setPadding(dp(8f), 0, 0, 0)
+            setPadding(dp(6f), 0, 0, 0)
         }
         liveRow.addView(dot)
         liveRow.addView(live)
-        liveRow.background = GradientDrawable().apply { cornerRadius = dp(8f).toFloat(); setColor(0x99000000.toInt()); setStroke(dp(1f), 0x55FF3B30) }
-        liveRow.setPadding(dp(12f), dp(6f), dp(14f), dp(6f))
-        bottom.addView(liveRow, LinearLayout.LayoutParams(-2, -2))
-        station = tv(34f, 0xFFE8C27A.toInt()).apply {
-            maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+        liveRow.background = GradientDrawable().apply { cornerRadius = dp(7f).toFloat(); setColor(0x99000000.toInt()); setStroke(dp(1f), 0x55FF3B30) }
+        liveRow.setPadding(dp(10f), dp(4f), dp(12f), dp(4f))
+        radioBox.addView(liveRow, LinearLayout.LayoutParams(-2, -2))
+        station = tv(26f, 0xFFE8C27A.toInt()).apply {
+            // the whole name, scrolling slowly when it doesn't fit
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            marqueeRepeatLimit = -1
+            isSelected = true
+            maxWidth = dp(380f)
             typeface = runCatching { Typeface.createFromAsset(c.assets, "gp_special_elite.ttf") }.getOrDefault(Typeface.SERIF)
             letterSpacing = 0.03f
+            includeFontPadding = true
         }
-        bottom.addView(station, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12f) })
-        onAir.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-        bottom.addView(onAir, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8f) })
-        addView(bottom, LayoutParams(-1, -2, Gravity.BOTTOM or Gravity.START).apply {
-            leftMargin = dp(56f); rightMargin = dp(470f); bottomMargin = dp(48f)
-        })
+        radioBox.addView(station, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(8f) })
+        onAir.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        onAir.gravity = Gravity.END
+        onAir.maxWidth = dp(380f)
+        radioBox.addView(onAir, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(4f) })
+        addView(radioBox, LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { rightMargin = dp(48f); topMargin = dp(44f) })
 
-        // ---- bottom right: a small news card (photo, headline, a line or two), changing every 12 s
+        // ---- bottom left: the news, part of the screen (no box) — source · time, photo, big headline
         newsCard = LinearLayout(c).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = GradientDrawable().apply { cornerRadius = dp(16f).toFloat(); setColor(0x8C000000.toInt()); setStroke(dp(1f), 0x26FFFFFF) }
-            setPadding(dp(10f), dp(10f), dp(14f), dp(10f))
+            orientation = LinearLayout.VERTICAL
             visibility = View.INVISIBLE
         }
+        newsMeta = tv(13f, 0xFFFFC27A.toInt(), bold = true).apply { letterSpacing = 0.06f }
+        newsCard.addView(newsMeta)
+        val story = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         newsPic = ImageView(c).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             outlineProvider = object : android.view.ViewOutlineProvider() {
-                override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, dp(10f).toFloat()) }
+                override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, dp(12f).toFloat()) }
             }
             clipToOutline = true
-            setBackgroundColor(0x33FFFFFF)
+            elevation = dp(6f).toFloat()
         }
-        newsCard.addView(newsPic, LinearLayout.LayoutParams(dp(128f), dp(92f)))
-        val texts = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12f), 0, 0, 0) }
-        newsMeta = tv(12f, 0xFFFFC27A.toInt(), bold = true).apply { letterSpacing = 0.05f }
-        newsTitle = tv(19f, Color.WHITE, bold = true).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
-        newsBrief = tv(12f, 0xCCFFFFFF.toInt()).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
-        texts.addView(newsMeta)
-        texts.addView(newsTitle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4f) })
-        // (no summary text: the headline is the story, kept big)
-        newsCard.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
-        addView(newsCard, LayoutParams(dp(400f), -2, Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(40f); bottomMargin = dp(100f) })
+        story.addView(newsPic, LinearLayout.LayoutParams(dp(156f), dp(100f)).apply { rightMargin = dp(18f) })
+        newsTitle = tv(23f, Color.WHITE, bold = true).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.12f) }
+        newsBrief = tv(12f, 0xCCFFFFFF.toInt()).apply { visibility = GONE }
+        story.addView(newsTitle, LinearLayout.LayoutParams(0, -2, 1f))
+        newsCard.addView(story, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10f) })
+        addView(newsCard, LayoutParams(dp(620f), -2, Gravity.BOTTOM or Gravity.START).apply { leftMargin = dp(56f); bottomMargin = dp(46f) })
 
         // ---- bottom right: what the buttons do
-        val hint = tv(15f, 0xCCFFFFFF.toInt()).apply {
+        val hint = tv(12f, 0xCCFFFFFF.toInt()).apply {
             background = GradientDrawable().apply { cornerRadius = dp(20f).toFloat(); setColor(0x80000000.toInt()); setStroke(dp(1f), 0x33FFFFFF) }
             setPadding(dp(16f), dp(8f), dp(16f), dp(8f))
             tag = "hint"
         }
-        addView(hint, LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(40f); bottomMargin = dp(52f) })
+        addView(hint, LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(48f); bottomMargin = dp(48f) })
     }
 
     val isOn get() = visibility == VISIBLE
@@ -183,12 +186,13 @@ class RadioSaver(c: Context) : FrameLayout(c) {
             if (list.isNotEmpty()) {
                 val st = list[newsIndex++ % list.size]
                 val show = {
-                    newsMeta.text = st.source + (if (st.ago.isNotEmpty()) "  ·  " + st.ago else "")
+                    newsMeta.text = TvRadio.t("समाचार", "NEWS") + "   ·   " + st.source + (if (st.ago.isNotEmpty()) "  ·  " + st.ago else "")
                     newsTitle.text = st.title
                     newsBrief.text = st.brief
                     newsBrief.visibility = GONE
                     newsPic.setImageBitmap(null)
                     newsPic.visibility = if (st.image.isEmpty()) GONE else VISIBLE
+                    station.isSelected = true
                     if (st.image.isNotEmpty()) NewsStories.picture(st.image) { b -> if (newsTitle.text == st.title) newsPic.setImageBitmap(b) }
                     newsCard.visibility = VISIBLE
                     newsCard.animate().alpha(1f).setDuration(700).start()

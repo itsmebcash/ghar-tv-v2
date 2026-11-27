@@ -239,10 +239,11 @@ class RetroDeck(c: Context) : View(c), Choreographer.FrameCallback {
             playing -> TvRadio.t("प्रत्यक्ष", "LIVE")
             else -> TvRadio.t("रोकिएको", "STOPPED")
         }
-        cv.drawText(listOf(status, lcdQuality).filter { it.isNotEmpty() }.joinToString("   ·   "), inL + 20 * d, y4, txt)
-        // LCD level bars, like an old hi-fi.
+        // LCD level bars, like an old hi-fi (the words stop before them, never over them).
         val bars = 14
         val bw = 7 * d; val bg = 4 * d
+        val barsW = bars * (bw + bg)
+        cv.drawText(fitText(listOf(status, lcdQuality).filter { it.isNotEmpty() }.joinToString("   ·   "), inW - 20 * d - barsW - 16 * d), inL + 20 * d, y4, txt)
         val bh = h * 0.07f
         val level = ((lv + rv) / 2).coerceIn(0f, 1f)
         for (k in 0 until bars) {

@@ -31,7 +31,7 @@ public class StartActivity extends Activity {
         tv.setOnClickListener(v -> open("tv"));
         music.setOnClickListener(v -> open("music"));
         View.OnFocusChangeListener grow = (v, has) ->
-                v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(150).start();
+                v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(160).start();
         tv.setOnFocusChangeListener(grow);
         music.setOnFocusChangeListener(grow);
         // Keep the corners round when chosen: the TV's own square focus frame is switched off,

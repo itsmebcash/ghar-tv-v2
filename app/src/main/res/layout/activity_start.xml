@@ -25,7 +25,7 @@
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="44dp"
+        android:layout_marginTop="36dp"
         android:clipChildren="false"
         android:orientation="horizontal">
 
@@ -39,7 +39,7 @@
             android:gravity="center"
             android:nextFocusRight="@+id/start_music"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="20dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -50,7 +50,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="10dp"
                 android:duplicateParentState="true"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/start_tv"
@@ -63,6 +63,7 @@
                 android:layout_marginTop="6dp"
                 android:duplicateParentState="true"
                 android:gravity="center"
+                android:maxLines="2"
                 android:text="@string/start_tv_sub"
                 android:textColor="@color/start_sub"
                 android:textSize="@dimen/start_card_sub" />
@@ -72,14 +73,14 @@
             android:id="@+id/start_music"
             android:layout_width="@dimen/start_card_w"
             android:layout_height="@dimen/start_card_h"
-            android:layout_marginStart="40dp"
+            android:layout_marginStart="32dp"
             android:background="@drawable/start_card"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
             android:nextFocusLeft="@id/start_tv"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="20dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -90,7 +91,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="10dp"
                 android:duplicateParentState="true"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/start_music"
@@ -103,6 +104,7 @@
                 android:layout_marginTop="6dp"
                 android:duplicateParentState="true"
                 android:gravity="center"
+                android:maxLines="2"
                 android:text="@string/start_music_sub"
                 android:textColor="@color/start_sub"
                 android:textSize="@dimen/start_card_sub" />
