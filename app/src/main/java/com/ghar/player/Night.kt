@@ -66,12 +66,97 @@ class LoadingView(c: Context, private val color: Int = Color.parseColor("#FF9933
     }
 }
 
-/** Weather for the night clock, from Open-Meteo (free, no key). Set for Janakpur. */
+/** Weather for the night clock and screensaver, from Open-Meteo (free, no key), for where the TV is. */
 object Weather {
-    const val PLACE_NE = "जनकपुर"
-    const val PLACE_EN = "Janakpur"
-    private const val LAT = 26.7288
-    private const val LON = 85.9263
+    // Where the weather is for: the TV's location (asked once), else found from the internet
+    // connection, else Janakpur as before.
+    @Volatile private var placeNe = "जनकपुर"
+    @Volatile private var placeEn = "Janakpur"
+    @Volatile private var LAT = 26.7288
+    @Volatile private var LON = 85.9263
+    @Volatile private var located = false
+    private var app: Context? = null
+
+    /** Call once with any context: loads the saved place and looks it up again in the background. */
+    fun init(c: Context) {
+        if (app != null) return
+        app = c.applicationContext
+        val p = c.getSharedPreferences("weather_place", Context.MODE_PRIVATE)
+        if (p.contains("lat")) {
+            LAT = p.getFloat("lat", LAT.toFloat()).toDouble(); LON = p.getFloat("lon", LON.toFloat()).toDouble()
+            placeNe = p.getString("ne", placeNe) ?: placeNe; placeEn = p.getString("en", placeEn) ?: placeEn
+        }
+        Thread { locate() }.start()
+    }
+
+    /** The TV's own location (GPS / network) if allowed and known; otherwise the internet connection's area. */
+    fun locate() {
+        val c = app ?: return
+        var lat: Double? = null; var lon: Double? = null; var name: String? = null
+        runCatching {
+            val ok = android.os.Build.VERSION.SDK_INT < 23 ||
+                c.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (ok) {
+                val lm = c.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+                @Suppress("MissingPermission")
+                val best = lm.getProviders(true).mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+                if (best != null) {
+                    lat = best.latitude; lon = best.longitude
+                    name = runCatching {
+                        @Suppress("DEPRECATION")
+                        android.location.Geocoder(c, Locale.US).getFromLocation(best.latitude, best.longitude, 1)?.firstOrNull()
+                            ?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
+                    }.getOrNull()
+                }
+            }
+        }
+        // a place name for those coordinates (OpenStreetMap, once in a while)
+        if (lat != null && name == null) runCatching {
+            val conn = URL("https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=en&lat=$lat&lon=$lon").openConnection() as HttpURLConnection
+            try {
+                conn.connectTimeout = 8000; conn.readTimeout = 10000
+                conn.setRequestProperty("User-Agent", "GharTV/4.3 Android TV weather")
+                val a = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONObject("address")
+                name = a?.let { listOf("city", "town", "municipality", "village", "county", "state_district").map { k -> it.optString(k) }.firstOrNull { v -> v.isNotBlank() } }
+                    ?.removeSuffix(" Sub-Metropolitan City")?.removeSuffix(" Metropolitan City")?.removeSuffix(" Municipality")
+            } finally { conn.disconnect() }
+        }
+        if (lat == null) runCatching {
+            // the internet connection's area (no key, no account)
+            val conn = URL("https://ipwho.is/?fields=success,city,latitude,longitude").openConnection() as HttpURLConnection
+            try {
+                conn.connectTimeout = 8000; conn.readTimeout = 10000
+                val o = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                if (o.optBoolean("success")) {
+                    if (lat == null) { lat = o.getDouble("latitude"); lon = o.getDouble("longitude") }
+                    if (name == null) name = o.optString("city").ifBlank { null }
+                }
+            } finally { conn.disconnect() }
+        }
+        val la = lat ?: return; val lo2 = lon ?: return
+        val en = name ?: placeEn
+        val moved = Math.abs(la - LAT) > 0.05 || Math.abs(lo2 - LON) > 0.05
+        LAT = la; LON = lo2; placeEn = en; placeNe = NE_PLACES[en.lowercase(Locale.US)] ?: en
+        located = true
+        c.getSharedPreferences("weather_place", Context.MODE_PRIVATE).edit()
+            .putFloat("lat", la.toFloat()).putFloat("lon", lo2.toFloat()).putString("ne", placeNe).putString("en", placeEn).apply()
+        if (moved) { fetchedAt = 0L; refresh() }
+    }
+
+    /** Nepali names for common places (others are shown as they come). */
+    private val NE_PLACES = mapOf(
+        "kathmandu" to "काठमाडौं", "lalitpur" to "ललितपुर", "patan" to "ललितपुर", "bhaktapur" to "भक्तपुर",
+        "pokhara" to "पोखरा", "janakpur" to "जनकपुर", "janakpurdham" to "जनकपुर", "biratnagar" to "विराटनगर",
+        "birgunj" to "वीरगन्ज", "bharatpur" to "भरतपुर", "chitwan" to "चितवन", "butwal" to "बुटवल",
+        "dharan" to "धरान", "hetauda" to "हेटौंडा", "nepalgunj" to "नेपालगन्ज", "dhangadhi" to "धनगढी",
+        "itahari" to "इटहरी", "birtamod" to "बिर्तामोड", "damak" to "दमक", "kirtipur" to "कीर्तिपुर",
+        "lahan" to "लहान", "rajbiraj" to "राजविराज", "siraha" to "सिराहा", "malangwa" to "मलंगवा",
+        "gaur" to "गौर", "kalaiya" to "कलैया", "tansen" to "तानसेन", "dhulikhel" to "धुलिखेल",
+        "banepa" to "बनेपा", "ghorahi" to "घोराही", "tulsipur" to "तुलसीपुर", "surkhet" to "सुर्खेत",
+        "birendranagar" to "वीरेन्द्रनगर", "mahendranagar" to "महेन्द्रनगर", "bhimdatta" to "भीमदत्त",
+        "gorkha" to "गोरखा", "ilam" to "इलाम", "jaleshwar" to "जलेश्वर", "bardibas" to "बर्दिबास",
+        "delhi" to "दिल्ली", "new delhi" to "नयाँ दिल्ली", "helsinki" to "हेलसिंकी", "tampere" to "टाम्पेरे",
+    )
 
     @Volatile var tempC: Int? = null
         private set
@@ -89,6 +174,7 @@ object Weather {
 
     /** Call off the main thread; refreshes at most every 30 minutes. */
     fun refresh() {
+        if (!located && app != null && fetchedAt == 0L) runCatching { locate() }
         if (System.currentTimeMillis() - fetchedAt < 30 * 60_000 && tempC != null) return
         runCatching {
             val c = URL("https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3")
@@ -125,7 +211,7 @@ object Weather {
         if (tempC == null) return ""
         val l = lo; val h = hi
         return listOf(
-            words(), TvRadio.t(PLACE_NE, PLACE_EN),
+            words(), TvRadio.t(placeNe, placeEn),
             if (h != null && l != null) TvRadio.t("${TvRadio.num(l)}° – ${TvRadio.num(h)}°", "$l° – $h°") else "",
         ).filter { it.isNotBlank() }.joinToString("   ·   ")
     }
@@ -166,7 +252,7 @@ object Weather {
         val t = tempC ?: return ""
         val l = lo; val h = hi
         val range = if (h != null && l != null) "   " + TvRadio.t("${TvRadio.num(l)}° – ${TvRadio.num(h)}°", "$l° – $h°") else ""
-        return listOf("$icon  ${TvRadio.num(t)}°C", TvRadio.t(ne, en), TvRadio.t(PLACE_NE, PLACE_EN))
+        return listOf("$icon  ${TvRadio.num(t)}°C", TvRadio.t(ne, en), TvRadio.t(placeNe, placeEn))
             .filter { it.isNotBlank() }.joinToString("   ·   ") + range
     }
 }

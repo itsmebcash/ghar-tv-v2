@@ -26,6 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import org.xmlpull.v1.XmlPullParser
 
 /**
  * Radio screensaver (Back once while the radio plays), laid out like Ghar Launcher's news
@@ -54,6 +55,12 @@ class RadioSaver(c: Context) : FrameLayout(c) {
     private val dot: TextView
     private val station: TextView
     private val onAir = tv(22f, 0xE6FFFFFF.toInt()).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+    private lateinit var newsCard: LinearLayout
+    private lateinit var newsPic: ImageView
+    private lateinit var newsMeta: TextView
+    private lateinit var newsTitle: TextView
+    private lateinit var newsBrief: TextView
+    private var newsIndex = 0
     private var blink: ObjectAnimator? = null
     private var shine: ValueAnimator? = null
     private var drift: ValueAnimator? = null
@@ -102,16 +109,43 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         liveRow.background = GradientDrawable().apply { cornerRadius = dp(8f).toFloat(); setColor(0x99000000.toInt()); setStroke(dp(1f), 0x55FF3B30) }
         liveRow.setPadding(dp(12f), dp(6f), dp(14f), dp(6f))
         bottom.addView(liveRow, LinearLayout.LayoutParams(-2, -2))
-        station = tv(54f, 0xFFE8C27A.toInt()).apply {
+        station = tv(38f, 0xFFE8C27A.toInt()).apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             typeface = runCatching { Typeface.createFromAsset(c.assets, "gp_special_elite.ttf") }.getOrDefault(Typeface.SERIF)
             letterSpacing = 0.03f
         }
-        bottom.addView(station, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14f) })
-        bottom.addView(onAir, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10f) })
+        bottom.addView(station, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12f) })
+        onAir.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+        bottom.addView(onAir, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8f) })
         addView(bottom, LayoutParams(-1, -2, Gravity.BOTTOM or Gravity.START).apply {
-            leftMargin = dp(56f); rightMargin = dp(300f); bottomMargin = dp(48f)
+            leftMargin = dp(56f); rightMargin = dp(470f); bottomMargin = dp(48f)
         })
+
+        // ---- bottom right: a small news card (photo, headline, a line or two), changing every 12 s
+        newsCard = LinearLayout(c).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = GradientDrawable().apply { cornerRadius = dp(16f).toFloat(); setColor(0x8C000000.toInt()); setStroke(dp(1f), 0x26FFFFFF) }
+            setPadding(dp(10f), dp(10f), dp(14f), dp(10f))
+            visibility = View.INVISIBLE
+        }
+        newsPic = ImageView(c).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, dp(10f).toFloat()) }
+            }
+            clipToOutline = true
+            setBackgroundColor(0x33FFFFFF)
+        }
+        newsCard.addView(newsPic, LinearLayout.LayoutParams(dp(128f), dp(92f)))
+        val texts = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12f), 0, 0, 0) }
+        newsMeta = tv(11f, 0xFFFFC27A.toInt(), bold = true).apply { letterSpacing = 0.05f }
+        newsTitle = tv(15f, Color.WHITE, bold = true).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
+        newsBrief = tv(12f, 0xCCFFFFFF.toInt()).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.1f) }
+        texts.addView(newsMeta)
+        texts.addView(newsTitle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4f) })
+        texts.addView(newsBrief, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4f) })
+        newsCard.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
+        addView(newsCard, LayoutParams(dp(400f), -2, Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(40f); bottomMargin = dp(100f) })
 
         // ---- bottom right: what the buttons do
         val hint = tv(15f, 0xCCFFFFFF.toInt()).apply {
@@ -135,6 +169,34 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         startAnimations()
         tick.run()
         Thread { Weather.refresh(); main.post { tick.run() } }.start()
+        newsIndex = 0
+        nextNews.run()
+        Thread { NewsStories.refresh(); main.post { if (isOn && newsCard.visibility != VISIBLE) nextNews.run() } }.start()
+    }
+
+    /** The next story on the small card (cross-fade). */
+    private val nextNews = object : Runnable {
+        override fun run() {
+            main.removeCallbacks(this)
+            val list = NewsStories.stories
+            if (list.isNotEmpty()) {
+                val st = list[newsIndex++ % list.size]
+                val show = {
+                    newsMeta.text = st.source + (if (st.ago.isNotEmpty()) "  ·  " + st.ago else "")
+                    newsTitle.text = st.title
+                    newsBrief.text = st.brief
+                    newsBrief.visibility = if (st.brief.isEmpty()) GONE else VISIBLE
+                    newsPic.setImageBitmap(null)
+                    newsPic.visibility = if (st.image.isEmpty()) GONE else VISIBLE
+                    if (st.image.isNotEmpty()) NewsStories.picture(st.image) { b -> if (newsTitle.text == st.title) newsPic.setImageBitmap(b) }
+                    newsCard.visibility = VISIBLE
+                    newsCard.animate().alpha(1f).setDuration(700).start()
+                }
+                if (newsCard.visibility == VISIBLE) newsCard.animate().alpha(0f).setDuration(500).withEndAction(show).start()
+                else { newsCard.alpha = 0f; show() }
+            }
+            main.postDelayed(this, if (list.isEmpty()) 5000 else 12_000)
+        }
     }
 
     fun hide() {
@@ -143,6 +205,7 @@ class RadioSaver(c: Context) : FrameLayout(c) {
         blink?.cancel(); shine?.cancel(); drift?.cancel()
         blink = null; shine = null; drift = null
         main.removeCallbacks(tick)
+        main.removeCallbacks(nextNews)
     }
 
     private fun startAnimations() {
@@ -203,6 +266,116 @@ class RadioSaver(c: Context) : FrameLayout(c) {
             }
             live.alpha = if (n?.playing == true) 1f else 0.5f
             main.postDelayed(this, 1000)
+        }
+    }
+}
+
+/**
+ * Top stories for the radio screensaver: headline, a line or two and a photo, from Onlinekhabar
+ * (BBC Nepali if it can't be reached), refreshed every 20 minutes.
+ */
+object NewsStories {
+    class Story(val title: String, val brief: String, val image: String, val source: String, val ago: String)
+
+    @Volatile var stories: List<Story> = emptyList()
+        private set
+    @Volatile private var fetchedAt = 0L
+    private val pics = android.util.LruCache<String, android.graphics.Bitmap>(12)
+    private val loader = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val ui = Handler(Looper.getMainLooper())
+
+    private val FEEDS = listOf(
+        "https://www.onlinekhabar.com/feed" to "अनलाइनखबर",
+        "https://feeds.bbci.co.uk/nepali/rss.xml" to "बीबीसी नेपाली",
+    )
+
+    private fun open(url: String): java.net.HttpURLConnection {
+        var u = url
+        repeat(4) {
+            val c = java.net.URL(u).openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 8000; c.readTimeout = 15000
+            c.instanceFollowRedirects = true
+            c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 9; TV) GharTV/4.3")
+            val code = c.responseCode
+            if (code in 300..399) { u = java.net.URL(java.net.URL(u), c.getHeaderField("Location")).toString(); c.disconnect(); return@repeat }
+            if (code !in 200..299) { c.disconnect(); throw IllegalStateException("HTTP $code") }
+            return c
+        }
+        throw IllegalStateException("too many redirects")
+    }
+
+    private fun clean(html: String) = android.text.Html.fromHtml(html).toString().replace('\uFFFC', ' ').replace(Regex("\\s+"), " ").trim()
+
+    private fun brief(text: String): String {
+        val t = text.replace(Regex("The post .*appeared first on.*$"), "").trim()
+        return if (t.length <= 170) t else t.substring(0, 170).substringBeforeLast(' ') + "…"
+    }
+
+    private fun parse(xml: String, source: String): List<Story> {
+        val out = ArrayList<Story>()
+        val pp = android.util.Xml.newPullParser()
+        pp.setInput(xml.substring(0, xml.lastIndexOf("</rss>").let { if (it < 0) xml.length else it + 6 }).reader())
+        var inItem = false
+        var title = ""; var desc = ""; var img = ""; var date = ""; var content = ""
+        var ev = pp.eventType
+        while (ev != XmlPullParser.END_DOCUMENT) {
+            if (ev == XmlPullParser.START_TAG) {
+                val n = pp.name
+                if (n == "item") { inItem = true; title = ""; desc = ""; img = ""; date = ""; content = "" }
+                else if (inItem) when (n) {
+                    "title" -> title = clean(pp.nextText())
+                    "description" -> desc = pp.nextText()
+                    "content:encoded" -> content = pp.nextText()
+                    "pubDate" -> date = pp.nextText()
+                    "image" -> if (img.isEmpty()) img = pp.nextText().trim()
+                    "media:thumbnail", "media:content", "enclosure" -> if (img.isEmpty()) img = pp.getAttributeValue(null, "url").orEmpty()
+                }
+            } else if (ev == XmlPullParser.END_TAG && pp.name == "item") {
+                inItem = false
+                if (img.isEmpty()) img = Regex("<img[^>]+src=[\"']([^\"']+)").find(content + desc)?.groupValues?.get(1).orEmpty()
+                img = img.replace("/240/", "/480/")
+                if (title.length >= 8) out += Story(title, brief(clean(desc)), img, source, ago(date))
+            }
+            ev = pp.next()
+        }
+        return out
+    }
+
+    private fun ago(rfc: String): String {
+        val t = runCatching { SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US).parse(rfc.trim())?.time }.getOrNull() ?: return ""
+        val m = ((System.currentTimeMillis() - t) / 60_000).coerceAtLeast(0)
+        val (n, ne, en) = when {
+            m < 60 -> Triple(m.toInt(), "मिनेट अघि", "min ago")
+            m < 48 * 60 -> Triple((m / 60).toInt(), "घण्टा अघि", "h ago")
+            else -> Triple((m / 1440).toInt(), "दिन अघि", "days ago")
+        }
+        return TvRadio.t(TvRadio.num(n) + " " + ne, "$n $en")
+    }
+
+    /** Off the main thread. */
+    fun refresh() {
+        if (System.currentTimeMillis() - fetchedAt < 20 * 60_000 && stories.isNotEmpty()) return
+        for ((url, name) in FEEDS) {
+            val list = runCatching { open(url).let { c -> try { parse(c.inputStream.bufferedReader().use { it.readText() }, name) } finally { c.disconnect() } } }
+                .getOrDefault(emptyList())
+            if (list.size >= 3) { stories = list.take(20); fetchedAt = System.currentTimeMillis(); return }
+        }
+    }
+
+    /** A small copy of a story's photo (cached). */
+    fun picture(url: String, done: (android.graphics.Bitmap) -> Unit) {
+        pics.get(url)?.let { done(it); return }
+        loader.execute {
+            val b = runCatching {
+                val bytes = open(url).let { c -> try { c.inputStream.use { it.readBytes() } } finally { c.disconnect() } }
+                val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+                var sample = 1
+                while (o.outWidth / (sample * 2) >= 320) sample *= 2
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            }.getOrNull() ?: return@execute
+            pics.put(url, b)
+            ui.post { done(b) }
         }
     }
 }

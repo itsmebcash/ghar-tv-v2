@@ -178,10 +178,24 @@ class MainActivity : Activity() {
         PlaybackService.ensure(this)
         TvRadio.loadLang(this)
         TvVolume.init(this)
-        // Android 13+: allow the "now playing" notification that keeps the radio alive in the background.
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7) }
+        // Asked once: the "now playing" notification (Android 13+, keeps the radio alive in the
+        // background) and the TV's location (weather for where you are).
+        Weather.init(this)
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            val ask = mutableListOf<String>()
+            if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) ask += android.Manifest.permission.POST_NOTIFICATIONS
+            val prefs = getSharedPreferences("weather_place", MODE_PRIVATE)
+            if (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                !prefs.getBoolean("asked", false)
+            ) {
+                ask += android.Manifest.permission.ACCESS_FINE_LOCATION
+                ask += android.Manifest.permission.ACCESS_COARSE_LOCATION
+                prefs.edit().putBoolean("asked", true).apply()
+            }
+            if (ask.isNotEmpty()) runCatching { requestPermissions(ask.toTypedArray(), 7) }
+        }
         favUrls = TvRadio.saved(this).map { it.url }.toSet()
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#141414")) }
@@ -649,6 +663,12 @@ class MainActivity : Activity() {
         val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) Color.BLACK else Color.WHITE }
         Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
     }.getOrNull()
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // location allowed: weather for here
+        if (permissions.any { it.contains("LOCATION") }) Thread { Weather.locate() }.start()
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
